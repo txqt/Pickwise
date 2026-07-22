@@ -71,6 +71,20 @@ Run the output from:
 src\Pickwise\bin\Release\net8.0\win-x64\publish
 ```
 
+## Package portable release
+
+```powershell
+.\scripts\package-release.ps1
+```
+
+The script creates:
+
+```text
+artifacts\Pickwise-win-x64.zip
+```
+
+This is a framework-dependent build. The target machine needs the .NET 8 Desktop Runtime installed. To run it, unzip the archive and start `Pickwise.exe`.
+
 ## Logs
 
 ```text

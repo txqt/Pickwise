@@ -6,6 +6,7 @@ public sealed record Champion(
     [property: JsonPropertyName("championId")] int ChampionId,
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("imageFileName")] string ImageFileName,
+    [property: JsonPropertyName("tags")] IReadOnlyList<string> Tags,
     [property: JsonPropertyName("searchText")] string SearchText)
 {
     public string Label => $"{Name} ({ChampionId})";

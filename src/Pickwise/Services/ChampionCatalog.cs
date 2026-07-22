@@ -20,16 +20,24 @@ public sealed class ChampionCatalog
     public IReadOnlyList<Champion> All => _champions;
 
     public IReadOnlyList<Champion> Search(string query)
+        => Filter(query, "All");
+
+    public IReadOnlyList<Champion> Filter(string query, string? role)
     {
-        if (string.IsNullOrWhiteSpace(query))
+        var matches = _champions.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(role) && role != "All")
         {
-            return _champions.Take(20).ToList();
+            matches = matches.Where(champion => champion.Tags.Contains(role));
         }
 
-        var normalized = query.Trim().ToLowerInvariant();
-        return _champions
-            .Where(champion => champion.SearchText.Contains(normalized))
-            .Take(30)
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var normalized = query.Trim().ToLowerInvariant();
+            matches = matches.Where(champion => champion.SearchText.Contains(normalized));
+        }
+
+        return matches
+            .Take(string.IsNullOrWhiteSpace(query) && (string.IsNullOrWhiteSpace(role) || role == "All") ? 20 : 30)
             .ToList();
     }
 }

@@ -45,6 +45,10 @@ static void AssertChampionCatalogSearchWorks()
     Assert(catalog.Search("ahri").Any(champion => champion.Name == "Ahri" && champion.ChampionId == 103), "finds Ahri by lowercase name");
     Assert(catalog.Search("AAT").Any(champion => champion.Name == "Aatrox" && champion.ChampionId == 266), "search is case-insensitive");
     Assert(catalog.All.Any(champion => champion.ChampionId == 62 && champion.ImageFileName == "MonkeyKing.png"), "catalog keeps Data Dragon image names");
+    Assert(catalog.All.Any(champion => champion.Name == "Ahri" && champion.Tags.Contains("Mage")), "catalog loads Data Dragon tags");
+    Assert(catalog.Filter("", "Marksman").All(champion => champion.Tags.Contains("Marksman")), "role filter returns only matching champions");
+    Assert(catalog.Filter("cait", "Marksman").Any(champion => champion.Name == "Caitlyn"), "search combines with role filter");
+    Assert(!catalog.Filter("cait", "Mage").Any(champion => champion.Name == "Caitlyn"), "role filter excludes search matches in other roles");
 }
 
 static void AssertGameModeCatalogWorks()

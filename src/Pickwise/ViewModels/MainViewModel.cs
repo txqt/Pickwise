@@ -36,6 +36,9 @@ public partial class MainViewModel : ViewModelBase
     private string _championSearch = "";
 
     [ObservableProperty]
+    private string _selectedChampionRole = "All";
+
+    [ObservableProperty]
     private Champion? _selectedChampion;
 
     [ObservableProperty]
@@ -43,6 +46,17 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private IReadOnlyList<ChampionTileViewModel> _champions = [];
+
+    public IReadOnlyList<string> ChampionRoles { get; } =
+    [
+        "All",
+        "Fighter",
+        "Tank",
+        "Mage",
+        "Assassin",
+        "Marksman",
+        "Support"
+    ];
 
     [ObservableProperty]
     private GameMode? _selectedGameMode;
@@ -99,9 +113,23 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnChampionSearchChanged(string value)
     {
-        Champions = _championCatalog.Search(value)
+        RefreshChampions();
+    }
+
+    partial void OnSelectedChampionRoleChanged(string value)
+    {
+        RefreshChampions();
+    }
+
+    private void RefreshChampions()
+    {
+        Champions = _championCatalog.Filter(ChampionSearch, SelectedChampionRole)
             .Select(champion => _championTilesById[champion.ChampionId])
             .ToList();
+        if (SelectedChampionTile is not null && !Champions.Contains(SelectedChampionTile))
+        {
+            SelectedChampionTile = null;
+        }
     }
 
     partial void OnSelectedChampionTileChanged(ChampionTileViewModel? value)

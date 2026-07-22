@@ -3,1038 +3,1688 @@
         "championId":  266,
         "name":  "Aatrox",
         "imageFileName":  "Aatrox.png",
+        "tags":  [
+                     "Fighter"
+                 ],
         "searchText":  "aatrox aatrox"
     },
     {
         "championId":  103,
         "name":  "Ahri",
         "imageFileName":  "Ahri.png",
+        "tags":  [
+                     "Mage",
+                     "Assassin"
+                 ],
         "searchText":  "ahri ahri"
     },
     {
         "championId":  84,
         "name":  "Akali",
         "imageFileName":  "Akali.png",
+        "tags":  [
+                     "Assassin"
+                 ],
         "searchText":  "akali akali"
     },
     {
         "championId":  166,
         "name":  "Akshan",
         "imageFileName":  "Akshan.png",
+        "tags":  [
+                     "Marksman",
+                     "Assassin"
+                 ],
         "searchText":  "akshan akshan"
     },
     {
         "championId":  12,
         "name":  "Alistar",
         "imageFileName":  "Alistar.png",
+        "tags":  [
+                     "Tank",
+                     "Support"
+                 ],
         "searchText":  "alistar alistar"
     },
     {
         "championId":  799,
         "name":  "Ambessa",
         "imageFileName":  "Ambessa.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "ambessa ambessa"
     },
     {
         "championId":  32,
         "name":  "Amumu",
         "imageFileName":  "Amumu.png",
+        "tags":  [
+                     "Tank",
+                     "Support"
+                 ],
         "searchText":  "amumu amumu"
     },
     {
         "championId":  34,
         "name":  "Anivia",
         "imageFileName":  "Anivia.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "anivia anivia"
     },
     {
         "championId":  1,
         "name":  "Annie",
         "imageFileName":  "Annie.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "annie annie"
     },
     {
         "championId":  523,
         "name":  "Aphelios",
         "imageFileName":  "Aphelios.png",
+        "tags":  [
+                     "Marksman"
+                 ],
         "searchText":  "aphelios aphelios"
     },
     {
         "championId":  22,
         "name":  "Ashe",
         "imageFileName":  "Ashe.png",
+        "tags":  [
+                     "Marksman",
+                     "Support"
+                 ],
         "searchText":  "ashe ashe"
     },
     {
         "championId":  136,
         "name":  "Aurelion Sol",
         "imageFileName":  "AurelionSol.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "aurelion sol aurelionsol"
     },
     {
         "championId":  893,
         "name":  "Aurora",
         "imageFileName":  "Aurora.png",
+        "tags":  [
+                     "Mage",
+                     "Assassin"
+                 ],
         "searchText":  "aurora aurora"
     },
     {
         "championId":  268,
         "name":  "Azir",
         "imageFileName":  "Azir.png",
+        "tags":  [
+                     "Mage",
+                     "Marksman"
+                 ],
         "searchText":  "azir azir"
     },
     {
         "championId":  432,
         "name":  "Bard",
         "imageFileName":  "Bard.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "bard bard"
     },
     {
         "championId":  200,
         "name":  "Bel\u0027Veth",
         "imageFileName":  "Belveth.png",
+        "tags":  [
+                     "Fighter"
+                 ],
         "searchText":  "bel\u0027veth belveth"
     },
     {
         "championId":  53,
         "name":  "Blitzcrank",
         "imageFileName":  "Blitzcrank.png",
+        "tags":  [
+                     "Tank",
+                     "Support"
+                 ],
         "searchText":  "blitzcrank blitzcrank"
     },
     {
         "championId":  63,
         "name":  "Brand",
         "imageFileName":  "Brand.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "brand brand"
     },
     {
         "championId":  201,
         "name":  "Braum",
         "imageFileName":  "Braum.png",
+        "tags":  [
+                     "Tank",
+                     "Support"
+                 ],
         "searchText":  "braum braum"
     },
     {
         "championId":  233,
         "name":  "Briar",
         "imageFileName":  "Briar.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "briar briar"
     },
     {
         "championId":  51,
         "name":  "Caitlyn",
         "imageFileName":  "Caitlyn.png",
+        "tags":  [
+                     "Marksman"
+                 ],
         "searchText":  "caitlyn caitlyn"
     },
     {
         "championId":  164,
         "name":  "Camille",
         "imageFileName":  "Camille.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "camille camille"
     },
     {
         "championId":  69,
         "name":  "Cassiopeia",
         "imageFileName":  "Cassiopeia.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "cassiopeia cassiopeia"
     },
     {
         "championId":  31,
         "name":  "Cho\u0027Gath",
         "imageFileName":  "Chogath.png",
+        "tags":  [
+                     "Tank",
+                     "Mage"
+                 ],
         "searchText":  "cho\u0027gath chogath"
     },
     {
         "championId":  42,
         "name":  "Corki",
         "imageFileName":  "Corki.png",
+        "tags":  [
+                     "Marksman",
+                     "Mage"
+                 ],
         "searchText":  "corki corki"
     },
     {
         "championId":  122,
         "name":  "Darius",
         "imageFileName":  "Darius.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "darius darius"
     },
     {
         "championId":  131,
         "name":  "Diana",
         "imageFileName":  "Diana.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "diana diana"
     },
     {
         "championId":  36,
         "name":  "Dr. Mundo",
         "imageFileName":  "DrMundo.png",
+        "tags":  [
+                     "Tank",
+                     "Fighter"
+                 ],
         "searchText":  "dr. mundo drmundo"
     },
     {
         "championId":  119,
         "name":  "Draven",
         "imageFileName":  "Draven.png",
+        "tags":  [
+                     "Marksman"
+                 ],
         "searchText":  "draven draven"
     },
     {
         "championId":  245,
         "name":  "Ekko",
         "imageFileName":  "Ekko.png",
+        "tags":  [
+                     "Assassin",
+                     "Mage"
+                 ],
         "searchText":  "ekko ekko"
     },
     {
         "championId":  60,
         "name":  "Elise",
         "imageFileName":  "Elise.png",
+        "tags":  [
+                     "Assassin",
+                     "Mage"
+                 ],
         "searchText":  "elise elise"
     },
     {
         "championId":  28,
         "name":  "Evelynn",
         "imageFileName":  "Evelynn.png",
+        "tags":  [
+                     "Assassin",
+                     "Mage"
+                 ],
         "searchText":  "evelynn evelynn"
     },
     {
         "championId":  81,
         "name":  "Ezreal",
         "imageFileName":  "Ezreal.png",
+        "tags":  [
+                     "Marksman",
+                     "Mage"
+                 ],
         "searchText":  "ezreal ezreal"
     },
     {
         "championId":  9,
         "name":  "Fiddlesticks",
         "imageFileName":  "Fiddlesticks.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "fiddlesticks fiddlesticks"
     },
     {
         "championId":  114,
         "name":  "Fiora",
         "imageFileName":  "Fiora.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "fiora fiora"
     },
     {
         "championId":  105,
         "name":  "Fizz",
         "imageFileName":  "Fizz.png",
+        "tags":  [
+                     "Assassin",
+                     "Fighter"
+                 ],
         "searchText":  "fizz fizz"
     },
     {
         "championId":  3,
         "name":  "Galio",
         "imageFileName":  "Galio.png",
+        "tags":  [
+                     "Tank",
+                     "Mage"
+                 ],
         "searchText":  "galio galio"
     },
     {
         "championId":  41,
         "name":  "Gangplank",
         "imageFileName":  "Gangplank.png",
+        "tags":  [
+                     "Fighter"
+                 ],
         "searchText":  "gangplank gangplank"
     },
     {
         "championId":  86,
         "name":  "Garen",
         "imageFileName":  "Garen.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "garen garen"
     },
     {
         "championId":  150,
         "name":  "Gnar",
         "imageFileName":  "Gnar.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "gnar gnar"
     },
     {
         "championId":  79,
         "name":  "Gragas",
         "imageFileName":  "Gragas.png",
+        "tags":  [
+                     "Fighter",
+                     "Mage"
+                 ],
         "searchText":  "gragas gragas"
     },
     {
         "championId":  104,
         "name":  "Graves",
         "imageFileName":  "Graves.png",
+        "tags":  [
+                     "Marksman"
+                 ],
         "searchText":  "graves graves"
     },
     {
         "championId":  887,
         "name":  "Gwen",
         "imageFileName":  "Gwen.png",
+        "tags":  [
+                     "Fighter"
+                 ],
         "searchText":  "gwen gwen"
     },
     {
         "championId":  120,
         "name":  "Hecarim",
         "imageFileName":  "Hecarim.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "hecarim hecarim"
     },
     {
         "championId":  74,
         "name":  "Heimerdinger",
         "imageFileName":  "Heimerdinger.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "heimerdinger heimerdinger"
     },
     {
         "championId":  910,
         "name":  "Hwei",
         "imageFileName":  "Hwei.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "hwei hwei"
     },
     {
         "championId":  420,
         "name":  "Illaoi",
         "imageFileName":  "Illaoi.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "illaoi illaoi"
     },
     {
         "championId":  39,
         "name":  "Irelia",
         "imageFileName":  "Irelia.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "irelia irelia"
     },
     {
         "championId":  427,
         "name":  "Ivern",
         "imageFileName":  "Ivern.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "ivern ivern"
     },
     {
         "championId":  40,
         "name":  "Janna",
         "imageFileName":  "Janna.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "janna janna"
     },
     {
         "championId":  59,
         "name":  "Jarvan IV",
         "imageFileName":  "JarvanIV.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "jarvan iv jarvaniv"
     },
     {
         "championId":  24,
         "name":  "Jax",
         "imageFileName":  "Jax.png",
+        "tags":  [
+                     "Fighter"
+                 ],
         "searchText":  "jax jax"
     },
     {
         "championId":  126,
         "name":  "Jayce",
         "imageFileName":  "Jayce.png",
+        "tags":  [
+                     "Fighter",
+                     "Marksman"
+                 ],
         "searchText":  "jayce jayce"
     },
     {
         "championId":  202,
         "name":  "Jhin",
         "imageFileName":  "Jhin.png",
+        "tags":  [
+                     "Marksman",
+                     "Mage"
+                 ],
         "searchText":  "jhin jhin"
     },
     {
         "championId":  222,
         "name":  "Jinx",
         "imageFileName":  "Jinx.png",
+        "tags":  [
+                     "Marksman"
+                 ],
         "searchText":  "jinx jinx"
     },
     {
         "championId":  145,
         "name":  "Kai\u0027Sa",
         "imageFileName":  "Kaisa.png",
+        "tags":  [
+                     "Marksman",
+                     "Mage"
+                 ],
         "searchText":  "kai\u0027sa kaisa"
     },
     {
         "championId":  429,
         "name":  "Kalista",
         "imageFileName":  "Kalista.png",
+        "tags":  [
+                     "Marksman"
+                 ],
         "searchText":  "kalista kalista"
     },
     {
         "championId":  43,
         "name":  "Karma",
         "imageFileName":  "Karma.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "karma karma"
     },
     {
         "championId":  30,
         "name":  "Karthus",
         "imageFileName":  "Karthus.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "karthus karthus"
     },
     {
         "championId":  38,
         "name":  "Kassadin",
         "imageFileName":  "Kassadin.png",
+        "tags":  [
+                     "Assassin",
+                     "Mage"
+                 ],
         "searchText":  "kassadin kassadin"
     },
     {
         "championId":  55,
         "name":  "Katarina",
         "imageFileName":  "Katarina.png",
+        "tags":  [
+                     "Assassin",
+                     "Mage"
+                 ],
         "searchText":  "katarina katarina"
     },
     {
         "championId":  10,
         "name":  "Kayle",
         "imageFileName":  "Kayle.png",
+        "tags":  [
+                     "Mage",
+                     "Marksman"
+                 ],
         "searchText":  "kayle kayle"
     },
     {
         "championId":  141,
         "name":  "Kayn",
         "imageFileName":  "Kayn.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "kayn kayn"
     },
     {
         "championId":  85,
         "name":  "Kennen",
         "imageFileName":  "Kennen.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "kennen kennen"
     },
     {
         "championId":  121,
         "name":  "Kha\u0027Zix",
         "imageFileName":  "Khazix.png",
+        "tags":  [
+                     "Assassin"
+                 ],
         "searchText":  "kha\u0027zix khazix"
     },
     {
         "championId":  203,
         "name":  "Kindred",
         "imageFileName":  "Kindred.png",
+        "tags":  [
+                     "Marksman"
+                 ],
         "searchText":  "kindred kindred"
     },
     {
         "championId":  240,
         "name":  "Kled",
         "imageFileName":  "Kled.png",
+        "tags":  [
+                     "Fighter"
+                 ],
         "searchText":  "kled kled"
     },
     {
         "championId":  96,
         "name":  "Kog\u0027Maw",
         "imageFileName":  "KogMaw.png",
+        "tags":  [
+                     "Marksman",
+                     "Mage"
+                 ],
         "searchText":  "kog\u0027maw kogmaw"
     },
     {
         "championId":  897,
         "name":  "K\u0027Sante",
         "imageFileName":  "KSante.png",
+        "tags":  [
+                     "Tank",
+                     "Fighter"
+                 ],
         "searchText":  "k\u0027sante ksante"
     },
     {
         "championId":  7,
         "name":  "LeBlanc",
         "imageFileName":  "Leblanc.png",
+        "tags":  [
+                     "Assassin",
+                     "Mage"
+                 ],
         "searchText":  "leblanc leblanc"
     },
     {
         "championId":  64,
         "name":  "Lee Sin",
         "imageFileName":  "LeeSin.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "lee sin leesin"
     },
     {
         "championId":  89,
         "name":  "Leona",
         "imageFileName":  "Leona.png",
+        "tags":  [
+                     "Tank",
+                     "Support"
+                 ],
         "searchText":  "leona leona"
     },
     {
         "championId":  876,
         "name":  "Lillia",
         "imageFileName":  "Lillia.png",
+        "tags":  [
+                     "Fighter",
+                     "Mage"
+                 ],
         "searchText":  "lillia lillia"
     },
     {
         "championId":  127,
         "name":  "Lissandra",
         "imageFileName":  "Lissandra.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "lissandra lissandra"
     },
     {
         "championId":  805,
         "name":  "Locke",
         "imageFileName":  "Locke.png",
+        "tags":  [
+                     "Assassin",
+                     "Mage"
+                 ],
         "searchText":  "locke locke"
     },
     {
         "championId":  236,
         "name":  "Lucian",
         "imageFileName":  "Lucian.png",
+        "tags":  [
+                     "Marksman",
+                     "Assassin"
+                 ],
         "searchText":  "lucian lucian"
     },
     {
         "championId":  117,
         "name":  "Lulu",
         "imageFileName":  "Lulu.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "lulu lulu"
     },
     {
         "championId":  99,
         "name":  "Lux",
         "imageFileName":  "Lux.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "lux lux"
     },
     {
         "championId":  54,
         "name":  "Malphite",
         "imageFileName":  "Malphite.png",
+        "tags":  [
+                     "Tank",
+                     "Mage"
+                 ],
         "searchText":  "malphite malphite"
     },
     {
         "championId":  90,
         "name":  "Malzahar",
         "imageFileName":  "Malzahar.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "malzahar malzahar"
     },
     {
         "championId":  57,
         "name":  "Maokai",
         "imageFileName":  "Maokai.png",
+        "tags":  [
+                     "Tank",
+                     "Support"
+                 ],
         "searchText":  "maokai maokai"
     },
     {
         "championId":  11,
         "name":  "Master Yi",
         "imageFileName":  "MasterYi.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "master yi masteryi"
     },
     {
         "championId":  800,
         "name":  "Mel",
         "imageFileName":  "Mel.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "mel mel"
     },
     {
         "championId":  902,
         "name":  "Milio",
         "imageFileName":  "Milio.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "milio milio"
     },
     {
         "championId":  21,
         "name":  "Miss Fortune",
         "imageFileName":  "MissFortune.png",
+        "tags":  [
+                     "Marksman",
+                     "Mage"
+                 ],
         "searchText":  "miss fortune missfortune"
     },
     {
         "championId":  82,
         "name":  "Mordekaiser",
         "imageFileName":  "Mordekaiser.png",
+        "tags":  [
+                     "Fighter",
+                     "Mage"
+                 ],
         "searchText":  "mordekaiser mordekaiser"
     },
     {
         "championId":  25,
         "name":  "Morgana",
         "imageFileName":  "Morgana.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "morgana morgana"
     },
     {
         "championId":  950,
         "name":  "Naafiri",
         "imageFileName":  "Naafiri.png",
+        "tags":  [
+                     "Assassin",
+                     "Fighter"
+                 ],
         "searchText":  "naafiri naafiri"
     },
     {
         "championId":  267,
         "name":  "Nami",
         "imageFileName":  "Nami.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "nami nami"
     },
     {
         "championId":  75,
         "name":  "Nasus",
         "imageFileName":  "Nasus.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "nasus nasus"
     },
     {
         "championId":  111,
         "name":  "Nautilus",
         "imageFileName":  "Nautilus.png",
+        "tags":  [
+                     "Tank",
+                     "Support"
+                 ],
         "searchText":  "nautilus nautilus"
     },
     {
         "championId":  518,
         "name":  "Neeko",
         "imageFileName":  "Neeko.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "neeko neeko"
     },
     {
         "championId":  76,
         "name":  "Nidalee",
         "imageFileName":  "Nidalee.png",
+        "tags":  [
+                     "Assassin",
+                     "Mage"
+                 ],
         "searchText":  "nidalee nidalee"
     },
     {
         "championId":  895,
         "name":  "Nilah",
         "imageFileName":  "Nilah.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "nilah nilah"
     },
     {
         "championId":  56,
         "name":  "Nocturne",
         "imageFileName":  "Nocturne.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "nocturne nocturne"
     },
     {
         "championId":  20,
         "name":  "Nunu \u0026 Willump",
         "imageFileName":  "Nunu.png",
+        "tags":  [
+                     "Tank",
+                     "Mage"
+                 ],
         "searchText":  "nunu \u0026 willump nunu"
     },
     {
         "championId":  2,
         "name":  "Olaf",
         "imageFileName":  "Olaf.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "olaf olaf"
     },
     {
         "championId":  61,
         "name":  "Orianna",
         "imageFileName":  "Orianna.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "orianna orianna"
     },
     {
         "championId":  516,
         "name":  "Ornn",
         "imageFileName":  "Ornn.png",
+        "tags":  [
+                     "Tank"
+                 ],
         "searchText":  "ornn ornn"
     },
     {
         "championId":  80,
         "name":  "Pantheon",
         "imageFileName":  "Pantheon.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "pantheon pantheon"
     },
     {
         "championId":  78,
         "name":  "Poppy",
         "imageFileName":  "Poppy.png",
+        "tags":  [
+                     "Tank",
+                     "Fighter"
+                 ],
         "searchText":  "poppy poppy"
     },
     {
         "championId":  555,
         "name":  "Pyke",
         "imageFileName":  "Pyke.png",
+        "tags":  [
+                     "Support",
+                     "Assassin"
+                 ],
         "searchText":  "pyke pyke"
     },
     {
         "championId":  246,
         "name":  "Qiyana",
         "imageFileName":  "Qiyana.png",
+        "tags":  [
+                     "Assassin"
+                 ],
         "searchText":  "qiyana qiyana"
     },
     {
         "championId":  133,
         "name":  "Quinn",
         "imageFileName":  "Quinn.png",
+        "tags":  [
+                     "Marksman",
+                     "Assassin"
+                 ],
         "searchText":  "quinn quinn"
     },
     {
         "championId":  497,
         "name":  "Rakan",
         "imageFileName":  "Rakan.png",
+        "tags":  [
+                     "Support"
+                 ],
         "searchText":  "rakan rakan"
     },
     {
         "championId":  33,
         "name":  "Rammus",
         "imageFileName":  "Rammus.png",
+        "tags":  [
+                     "Tank"
+                 ],
         "searchText":  "rammus rammus"
     },
     {
         "championId":  421,
         "name":  "Rek\u0027Sai",
         "imageFileName":  "RekSai.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "rek\u0027sai reksai"
     },
     {
         "championId":  526,
         "name":  "Rell",
         "imageFileName":  "Rell.png",
+        "tags":  [
+                     "Tank",
+                     "Support"
+                 ],
         "searchText":  "rell rell"
     },
     {
         "championId":  888,
         "name":  "Renata Glasc",
         "imageFileName":  "Renata.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "renata glasc renata"
     },
     {
         "championId":  58,
         "name":  "Renekton",
         "imageFileName":  "Renekton.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "renekton renekton"
     },
     {
         "championId":  107,
         "name":  "Rengar",
         "imageFileName":  "Rengar.png",
+        "tags":  [
+                     "Assassin",
+                     "Fighter"
+                 ],
         "searchText":  "rengar rengar"
     },
     {
         "championId":  92,
         "name":  "Riven",
         "imageFileName":  "Riven.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "riven riven"
     },
     {
         "championId":  68,
         "name":  "Rumble",
         "imageFileName":  "Rumble.png",
+        "tags":  [
+                     "Fighter",
+                     "Mage"
+                 ],
         "searchText":  "rumble rumble"
     },
     {
         "championId":  13,
         "name":  "Ryze",
         "imageFileName":  "Ryze.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "ryze ryze"
     },
     {
         "championId":  360,
         "name":  "Samira",
         "imageFileName":  "Samira.png",
+        "tags":  [
+                     "Marksman",
+                     "Assassin"
+                 ],
         "searchText":  "samira samira"
     },
     {
         "championId":  113,
         "name":  "Sejuani",
         "imageFileName":  "Sejuani.png",
+        "tags":  [
+                     "Tank"
+                 ],
         "searchText":  "sejuani sejuani"
     },
     {
         "championId":  235,
         "name":  "Senna",
         "imageFileName":  "Senna.png",
+        "tags":  [
+                     "Support",
+                     "Marksman"
+                 ],
         "searchText":  "senna senna"
     },
     {
         "championId":  147,
         "name":  "Seraphine",
         "imageFileName":  "Seraphine.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "seraphine seraphine"
     },
     {
         "championId":  875,
         "name":  "Sett",
         "imageFileName":  "Sett.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "sett sett"
     },
     {
         "championId":  35,
         "name":  "Shaco",
         "imageFileName":  "Shaco.png",
+        "tags":  [
+                     "Assassin"
+                 ],
         "searchText":  "shaco shaco"
     },
     {
         "championId":  98,
         "name":  "Shen",
         "imageFileName":  "Shen.png",
+        "tags":  [
+                     "Tank"
+                 ],
         "searchText":  "shen shen"
     },
     {
         "championId":  102,
         "name":  "Shyvana",
         "imageFileName":  "Shyvana.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "shyvana shyvana"
     },
     {
         "championId":  27,
         "name":  "Singed",
         "imageFileName":  "Singed.png",
+        "tags":  [
+                     "Tank",
+                     "Mage"
+                 ],
         "searchText":  "singed singed"
     },
     {
         "championId":  14,
         "name":  "Sion",
         "imageFileName":  "Sion.png",
+        "tags":  [
+                     "Tank",
+                     "Fighter"
+                 ],
         "searchText":  "sion sion"
     },
     {
         "championId":  15,
         "name":  "Sivir",
         "imageFileName":  "Sivir.png",
+        "tags":  [
+                     "Marksman"
+                 ],
         "searchText":  "sivir sivir"
     },
     {
         "championId":  72,
         "name":  "Skarner",
         "imageFileName":  "Skarner.png",
+        "tags":  [
+                     "Tank",
+                     "Fighter"
+                 ],
         "searchText":  "skarner skarner"
     },
     {
         "championId":  901,
         "name":  "Smolder",
         "imageFileName":  "Smolder.png",
+        "tags":  [
+                     "Marksman",
+                     "Mage"
+                 ],
         "searchText":  "smolder smolder"
     },
     {
         "championId":  37,
         "name":  "Sona",
         "imageFileName":  "Sona.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "sona sona"
     },
     {
         "championId":  16,
         "name":  "Soraka",
         "imageFileName":  "Soraka.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "soraka soraka"
     },
     {
         "championId":  50,
         "name":  "Swain",
         "imageFileName":  "Swain.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "swain swain"
     },
     {
         "championId":  517,
         "name":  "Sylas",
         "imageFileName":  "Sylas.png",
+        "tags":  [
+                     "Mage",
+                     "Assassin"
+                 ],
         "searchText":  "sylas sylas"
     },
     {
         "championId":  134,
         "name":  "Syndra",
         "imageFileName":  "Syndra.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "syndra syndra"
     },
     {
         "championId":  223,
         "name":  "Tahm Kench",
         "imageFileName":  "TahmKench.png",
+        "tags":  [
+                     "Tank",
+                     "Support"
+                 ],
         "searchText":  "tahm kench tahmkench"
     },
     {
         "championId":  163,
         "name":  "Taliyah",
         "imageFileName":  "Taliyah.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "taliyah taliyah"
     },
     {
         "championId":  91,
         "name":  "Talon",
         "imageFileName":  "Talon.png",
+        "tags":  [
+                     "Assassin"
+                 ],
         "searchText":  "talon talon"
     },
     {
         "championId":  44,
         "name":  "Taric",
         "imageFileName":  "Taric.png",
+        "tags":  [
+                     "Support",
+                     "Tank"
+                 ],
         "searchText":  "taric taric"
     },
     {
         "championId":  17,
         "name":  "Teemo",
         "imageFileName":  "Teemo.png",
+        "tags":  [
+                     "Marksman",
+                     "Mage"
+                 ],
         "searchText":  "teemo teemo"
     },
     {
         "championId":  412,
         "name":  "Thresh",
         "imageFileName":  "Thresh.png",
+        "tags":  [
+                     "Support",
+                     "Tank"
+                 ],
         "searchText":  "thresh thresh"
     },
     {
         "championId":  18,
         "name":  "Tristana",
         "imageFileName":  "Tristana.png",
+        "tags":  [
+                     "Marksman",
+                     "Assassin"
+                 ],
         "searchText":  "tristana tristana"
     },
     {
         "championId":  48,
         "name":  "Trundle",
         "imageFileName":  "Trundle.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "trundle trundle"
     },
     {
         "championId":  23,
         "name":  "Tryndamere",
         "imageFileName":  "Tryndamere.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "tryndamere tryndamere"
     },
     {
         "championId":  4,
         "name":  "Twisted Fate",
         "imageFileName":  "TwistedFate.png",
+        "tags":  [
+                     "Mage",
+                     "Marksman"
+                 ],
         "searchText":  "twisted fate twistedfate"
     },
     {
         "championId":  29,
         "name":  "Twitch",
         "imageFileName":  "Twitch.png",
+        "tags":  [
+                     "Marksman",
+                     "Assassin"
+                 ],
         "searchText":  "twitch twitch"
     },
     {
         "championId":  77,
         "name":  "Udyr",
         "imageFileName":  "Udyr.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "udyr udyr"
     },
     {
         "championId":  6,
         "name":  "Urgot",
         "imageFileName":  "Urgot.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "urgot urgot"
     },
     {
         "championId":  110,
         "name":  "Varus",
         "imageFileName":  "Varus.png",
+        "tags":  [
+                     "Marksman",
+                     "Mage"
+                 ],
         "searchText":  "varus varus"
     },
     {
         "championId":  67,
         "name":  "Vayne",
         "imageFileName":  "Vayne.png",
+        "tags":  [
+                     "Marksman",
+                     "Assassin"
+                 ],
         "searchText":  "vayne vayne"
     },
     {
         "championId":  45,
         "name":  "Veigar",
         "imageFileName":  "Veigar.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "veigar veigar"
     },
     {
         "championId":  161,
         "name":  "Vel\u0027Koz",
         "imageFileName":  "Velkoz.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "vel\u0027koz velkoz"
     },
     {
         "championId":  711,
         "name":  "Vex",
         "imageFileName":  "Vex.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "vex vex"
     },
     {
         "championId":  254,
         "name":  "Vi",
         "imageFileName":  "Vi.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "vi vi"
     },
     {
         "championId":  234,
         "name":  "Viego",
         "imageFileName":  "Viego.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "viego viego"
     },
     {
         "championId":  112,
         "name":  "Viktor",
         "imageFileName":  "Viktor.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "viktor viktor"
     },
     {
         "championId":  8,
         "name":  "Vladimir",
         "imageFileName":  "Vladimir.png",
+        "tags":  [
+                     "Mage",
+                     "Fighter"
+                 ],
         "searchText":  "vladimir vladimir"
     },
     {
         "championId":  106,
         "name":  "Volibear",
         "imageFileName":  "Volibear.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "volibear volibear"
     },
     {
         "championId":  19,
         "name":  "Warwick",
         "imageFileName":  "Warwick.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "warwick warwick"
     },
     {
         "championId":  62,
         "name":  "Wukong",
         "imageFileName":  "MonkeyKing.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "wukong monkeyking"
     },
     {
         "championId":  498,
         "name":  "Xayah",
         "imageFileName":  "Xayah.png",
+        "tags":  [
+                     "Marksman"
+                 ],
         "searchText":  "xayah xayah"
     },
     {
         "championId":  101,
         "name":  "Xerath",
         "imageFileName":  "Xerath.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "xerath xerath"
     },
     {
         "championId":  5,
         "name":  "Xin Zhao",
         "imageFileName":  "XinZhao.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "xin zhao xinzhao"
     },
     {
         "championId":  157,
         "name":  "Yasuo",
         "imageFileName":  "Yasuo.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "yasuo yasuo"
     },
     {
         "championId":  777,
         "name":  "Yone",
         "imageFileName":  "Yone.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "yone yone"
     },
     {
         "championId":  83,
         "name":  "Yorick",
         "imageFileName":  "Yorick.png",
+        "tags":  [
+                     "Fighter",
+                     "Tank"
+                 ],
         "searchText":  "yorick yorick"
     },
     {
         "championId":  804,
         "name":  "Yunara",
         "imageFileName":  "Yunara.png",
+        "tags":  [
+                     "Marksman"
+                 ],
         "searchText":  "yunara yunara"
     },
     {
         "championId":  350,
         "name":  "Yuumi",
         "imageFileName":  "Yuumi.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "yuumi yuumi"
     },
     {
         "championId":  904,
         "name":  "Zaahen",
         "imageFileName":  "Zaahen.png",
+        "tags":  [
+                     "Fighter",
+                     "Assassin"
+                 ],
         "searchText":  "zaahen zaahen"
     },
     {
         "championId":  154,
         "name":  "Zac",
         "imageFileName":  "Zac.png",
+        "tags":  [
+                     "Tank",
+                     "Fighter"
+                 ],
         "searchText":  "zac zac"
     },
     {
         "championId":  238,
         "name":  "Zed",
         "imageFileName":  "Zed.png",
+        "tags":  [
+                     "Assassin"
+                 ],
         "searchText":  "zed zed"
     },
     {
         "championId":  221,
         "name":  "Zeri",
         "imageFileName":  "Zeri.png",
+        "tags":  [
+                     "Marksman"
+                 ],
         "searchText":  "zeri zeri"
     },
     {
         "championId":  115,
         "name":  "Ziggs",
         "imageFileName":  "Ziggs.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "ziggs ziggs"
     },
     {
         "championId":  26,
         "name":  "Zilean",
         "imageFileName":  "Zilean.png",
+        "tags":  [
+                     "Support",
+                     "Mage"
+                 ],
         "searchText":  "zilean zilean"
     },
     {
         "championId":  142,
         "name":  "Zoe",
         "imageFileName":  "Zoe.png",
+        "tags":  [
+                     "Mage"
+                 ],
         "searchText":  "zoe zoe"
     },
     {
         "championId":  143,
         "name":  "Zyra",
         "imageFileName":  "Zyra.png",
+        "tags":  [
+                     "Mage",
+                     "Support"
+                 ],
         "searchText":  "zyra zyra"
     }
 ]

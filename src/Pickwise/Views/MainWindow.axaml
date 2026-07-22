@@ -57,6 +57,14 @@
                     <TextBlock Text="Champion Select" FontWeight="SemiBold" Foreground="#d6e7e7" />
                     <TextBlock Text="{Binding ChampionSelect}" Foreground="#8ba3a3" />
                     <TextBox Watermark="Search champion" Text="{Binding ChampionSearch}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Role"
+                                   Foreground="#8ba3a3"
+                                   VerticalAlignment="Center" />
+                        <ComboBox ItemsSource="{Binding ChampionRoles}"
+                                  SelectedItem="{Binding SelectedChampionRole}"
+                                  MinWidth="140" />
+                    </StackPanel>
                     <ListBox ItemsSource="{Binding Champions}"
                              SelectedItem="{Binding SelectedChampionTile}"
                              MaxHeight="300"

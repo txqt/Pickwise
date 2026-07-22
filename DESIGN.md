@@ -23,7 +23,7 @@ Pickwise is a local desktop companion for League of Legends. The UI should feel 
 - Current Summoner card: shows the signed-in summoner or `Not connected`.
 - Mode Selection card: queue dropdown and `Create Lobby`.
 - Ready Check card: ready-check state and explicit `Accept` / `Decline`.
-- Champion Select card: search box, wrapped champion icon grid, selected tile, explicit `Pick` / `Ban`.
+- Champion Select card: search box, role filter, wrapped champion icon grid, selected tile, explicit `Pick` / `Ban`.
 - Readiness card: diagnostic log path, champion icon cache path, and Riot disclaimer.
 - Tray icon: keeps Pickwise reachable while hidden, with `Show Pickwise` and `Exit` menu items where platform support is available.
 - Ready-check alert: on transition into ready check, show the main window and change title/tray tooltip to `Pickwise - Match Found`.

@@ -12,6 +12,7 @@ Pickwise is a local Windows desktop companion for League of Legends. It connects
 - Shows Champion Select state.
 - Lets the player search a champion and click Pick or Ban.
 - Shows cached Data Dragon champion icons when available; missing icons do not block app actions.
+- Stays available from the system tray where supported; closing the window hides it, tray Exit quits it.
 - Writes local diagnostic and crash logs.
 
 Pickwise does not auto-accept, auto-pick, auto-ban, run an overlay, store Riot credentials, or use a backend.
@@ -56,6 +57,7 @@ dotnet run --project tests\Pickwise.Tests\Pickwise.Tests.csproj --no-build
 5. Use Pickwise to Accept or Decline when ready check appears.
 6. In champion select, search a champion and click Pick or Ban.
 7. Disconnect internet and restart Pickwise to confirm missing champion icons show placeholders without blocking the app.
+8. Close the Pickwise window and confirm it stays in the tray; use tray `Show Pickwise` and `Exit`.
 
 ## Publish test build
 
@@ -89,6 +91,7 @@ Champion icons are cached under:
 - ARAM Mayhem is a temporary queue and may be unavailable outside Riot's rollout.
 - Riot Web API features such as match history are not implemented yet.
 - No installer is included yet; use the publish folder for test builds.
+- No Windows toast or sound alert yet; ready-check alert uses the app window/title and tray tooltip where tray is available.
 
 ## Riot compliance notes
 

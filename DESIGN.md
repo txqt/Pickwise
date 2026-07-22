@@ -25,6 +25,8 @@ Pickwise is a local desktop companion for League of Legends. The UI should feel 
 - Ready Check card: ready-check state and explicit `Accept` / `Decline`.
 - Champion Select card: search box, wrapped champion icon grid, selected tile, explicit `Pick` / `Ban`.
 - Readiness card: diagnostic log path, champion icon cache path, and Riot disclaimer.
+- Tray icon: keeps Pickwise reachable while hidden, with `Show Pickwise` and `Exit` menu items where platform support is available.
+- Ready-check alert: on transition into ready check, show the main window and change title/tray tooltip to `Pickwise - Match Found`.
 
 ## Visual Tokens
 
@@ -45,6 +47,7 @@ Do:
 - Keep error text visible in the main window.
 - Keep logs discoverable.
 - Use Data Dragon icons as an enhancement only.
+- Hide to tray on window close; quit only through the tray `Exit` command.
 
 Don't:
 
@@ -52,3 +55,4 @@ Don't:
 - Hide write actions behind background jobs.
 - Make the app look like an official Riot client.
 - Require icon downloads for core app behavior.
+- Spam alerts every polling tick; alert only on state transition into ready check.

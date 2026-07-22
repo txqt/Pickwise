@@ -107,7 +107,17 @@
             </Border>
 
             <TextBlock Text="{Binding LastCommandResult}" />
-            <TextBlock Text="{Binding LogPath}" FontSize="12" Foreground="#666" TextWrapping="Wrap" />
+
+            <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Readiness" FontWeight="SemiBold" />
+                    <TextBlock Text="Logs" FontSize="12" Foreground="#666" />
+                    <TextBlock Text="{Binding LogPath}" FontSize="12" TextWrapping="Wrap" />
+                    <TextBlock Text="Champion icon cache" FontSize="12" Foreground="#666" />
+                    <TextBlock Text="{Binding ChampionIconCachePath}" FontSize="12" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding RiotDisclaimer}" FontSize="11" Foreground="#666" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </Window>

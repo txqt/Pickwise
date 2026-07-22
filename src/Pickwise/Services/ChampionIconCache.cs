@@ -9,6 +9,12 @@ public sealed class ChampionIconCache(LocalDiagnosticLog log)
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(4) };
     private bool _remoteDisabled;
 
+    public static string CacheDirectory => System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Pickwise",
+        "champion-icons",
+        DataDragonVersion);
+
     public async Task<Bitmap?> LoadAsync(Champion champion, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(champion.ImageFileName))
@@ -16,12 +22,7 @@ public sealed class ChampionIconCache(LocalDiagnosticLog log)
             return null;
         }
 
-        var path = System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Pickwise",
-            "champion-icons",
-            DataDragonVersion,
-            champion.ImageFileName);
+        var path = System.IO.Path.Combine(CacheDirectory, champion.ImageFileName);
 
         if (File.Exists(path))
         {

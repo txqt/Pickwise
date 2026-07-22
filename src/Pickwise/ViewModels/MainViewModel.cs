@@ -54,6 +54,8 @@ public partial class MainViewModel : ViewModelBase
     private string _lastCommandResult = "";
 
     public string LogPath => _log.Path;
+    public string ChampionIconCachePath => ChampionIconCache.CacheDirectory;
+    public string RiotDisclaimer => "Pickwise is not endorsed by Riot Games and does not reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games and all associated properties are trademarks or registered trademarks of Riot Games, Inc.";
     public bool CanRespondReadyCheck => Phase == AppPhase.ReadyCheck;
     public bool CanChampionCommand => Phase == AppPhase.ChampionSelect && SelectedChampion is not null;
     public bool CanCreateLobby => Phase == AppPhase.Connected && SelectedGameMode is not null;

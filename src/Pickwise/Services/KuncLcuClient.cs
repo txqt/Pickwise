@@ -67,6 +67,12 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
         _log.Info("Ready Check declined by Player Command");
     }
 
+    public async Task CreateLobbyAsync(int queueId, CancellationToken cancellationToken)
+    {
+        await _lcu.Value.PostAsJsonAsync("lol-lobby/v2/lobby", new { queueId }, cancellationToken);
+        _log.Info($"Lobby created by Player Command: queueId={queueId}");
+    }
+
     public Task PickChampionAsync(int championId, CancellationToken cancellationToken) =>
         PatchCurrentChampionActionAsync("pick", championId, cancellationToken);
 

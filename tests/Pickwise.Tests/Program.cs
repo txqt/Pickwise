@@ -17,6 +17,7 @@ var session = new ChampionSelectSession(
 Assert(session.CurrentAction("ban")?.Id == 2, "finds active local ban action");
 Assert(session.CurrentAction("pick") is null, "ignores inactive pick action");
 AssertChampionCatalogSearchWorks();
+AssertGameModeCatalogWorks();
 AssertConstructorDoesNotBlockOnSlowLcu();
 Console.WriteLine("Pickwise self-checks passed.");
 
@@ -44,6 +45,13 @@ static void AssertChampionCatalogSearchWorks()
     Assert(catalog.Search("AAT").Any(champion => champion.Name == "Aatrox" && champion.ChampionId == 266), "search is case-insensitive");
 }
 
+static void AssertGameModeCatalogWorks()
+{
+    var catalog = new GameModeCatalog();
+    Assert(catalog.All.Any(mode => mode.Name == "Normal Draft 5v5" && mode.QueueId == 400), "catalog contains Normal Draft 5v5 queue");
+    Assert(catalog.All.Any(mode => mode.Name == "ARAM" && mode.QueueId == 450), "catalog contains ARAM queue");
+}
+
 sealed class SlowLcuClient : ILcuClient
 {
     public Task<LcuSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
@@ -54,6 +62,7 @@ sealed class SlowLcuClient : ILcuClient
 
     public Task AcceptReadyCheckAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public Task DeclineReadyCheckAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task CreateLobbyAsync(int queueId, CancellationToken cancellationToken) => Task.CompletedTask;
     public Task PickChampionAsync(int championId, CancellationToken cancellationToken) => Task.CompletedTask;
     public Task BanChampionAsync(int championId, CancellationToken cancellationToken) => Task.CompletedTask;
 }

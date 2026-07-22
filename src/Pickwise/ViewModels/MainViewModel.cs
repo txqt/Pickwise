@@ -11,6 +11,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly ILcuClient _lcu;
     private readonly LocalDiagnosticLog _log;
     private readonly ChampionCatalog _championCatalog;
+    private readonly GameModeCatalog _gameModeCatalog;
     private readonly CancellationTokenSource _polling = new();
 
     [ObservableProperty]
@@ -38,26 +39,36 @@ public partial class MainViewModel : ViewModelBase
     private IReadOnlyList<Champion> _champions = [];
 
     [ObservableProperty]
+    private GameMode? _selectedGameMode;
+
+    [ObservableProperty]
+    private IReadOnlyList<GameMode> _gameModes = [];
+
+    [ObservableProperty]
     private string _lastCommandResult = "";
 
     public string LogPath => _log.Path;
     public bool CanRespondReadyCheck => Phase == AppPhase.ReadyCheck;
     public bool CanChampionCommand => Phase == AppPhase.ChampionSelect && SelectedChampion is not null;
+    public bool CanCreateLobby => Phase == AppPhase.Connected && SelectedGameMode is not null;
 
     public MainViewModel() : this(CreateDefaultLog())
     {
     }
 
-    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log) : this(lcu, log, new ChampionCatalog())
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log) : this(lcu, log, new ChampionCatalog(), new GameModeCatalog())
     {
     }
 
-    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionCatalog championCatalog)
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionCatalog championCatalog, GameModeCatalog gameModeCatalog)
     {
         _lcu = lcu;
         _log = log;
         _championCatalog = championCatalog;
+        _gameModeCatalog = gameModeCatalog;
         Champions = _championCatalog.Search("");
+        GameModes = _gameModeCatalog.All;
+        SelectedGameMode = GameModes.FirstOrDefault();
         _ = Task.Run(() => PollAsync(_polling.Token));
     }
 
@@ -71,6 +82,7 @@ public partial class MainViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(CanRespondReadyCheck));
         OnPropertyChanged(nameof(CanChampionCommand));
+        OnPropertyChanged(nameof(CanCreateLobby));
     }
 
     partial void OnChampionSearchChanged(string value)
@@ -85,11 +97,31 @@ public partial class MainViewModel : ViewModelBase
         BanCommand.NotifyCanExecuteChanged();
     }
 
+    partial void OnSelectedGameModeChanged(GameMode? value)
+    {
+        OnPropertyChanged(nameof(CanCreateLobby));
+        CreateLobbyCommand.NotifyCanExecuteChanged();
+    }
+
     [RelayCommand(CanExecute = nameof(CanRespondReadyCheck))]
     private Task AcceptAsync() => RunCommandAsync(token => _lcu.AcceptReadyCheckAsync(token), "Accepted ready check");
 
     [RelayCommand(CanExecute = nameof(CanRespondReadyCheck))]
     private Task DeclineAsync() => RunCommandAsync(token => _lcu.DeclineReadyCheckAsync(token), "Declined ready check");
+
+    [RelayCommand(CanExecute = nameof(CanCreateLobby))]
+    private Task CreateLobbyAsync()
+    {
+        if (SelectedGameMode is null)
+        {
+            LastCommandResult = "Select a mode first";
+            return Task.CompletedTask;
+        }
+
+        return RunCommandAsync(
+            token => _lcu.CreateLobbyAsync(SelectedGameMode.QueueId, token),
+            $"Created {SelectedGameMode.Name} lobby");
+    }
 
     [RelayCommand(CanExecute = nameof(CanChampionCommand))]
     private Task PickAsync() => RunChampionCommandAsync(_lcu.PickChampionAsync, "Pick submitted");
@@ -141,6 +173,7 @@ public partial class MainViewModel : ViewModelBase
             : $"Allies: {snapshot.ChampionSelect.MyTeam.Count}, enemies: {snapshot.ChampionSelect.TheirTeam.Count}";
         AcceptCommand.NotifyCanExecuteChanged();
         DeclineCommand.NotifyCanExecuteChanged();
+        CreateLobbyCommand.NotifyCanExecuteChanged();
         PickCommand.NotifyCanExecuteChanged();
         BanCommand.NotifyCanExecuteChanged();
     }

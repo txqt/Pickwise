@@ -27,6 +27,22 @@
 
             <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
                 <StackPanel Spacing="10">
+                    <TextBlock Text="Mode Selection" FontWeight="SemiBold" />
+                    <ComboBox ItemsSource="{Binding GameModes}"
+                              SelectedItem="{Binding SelectedGameMode}"
+                              HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Content="Create Lobby" Command="{Binding CreateLobbyCommand}" />
+                </StackPanel>
+            </Border>
+
+            <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
+                <StackPanel Spacing="10">
                     <TextBlock Text="Ready Check" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding ReadyCheck}" />
                     <StackPanel Orientation="Horizontal" Spacing="10">

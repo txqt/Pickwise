@@ -5,6 +5,7 @@ namespace Pickwise.Models;
 public sealed record Champion(
     [property: JsonPropertyName("championId")] int ChampionId,
     [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("imageFileName")] string ImageFileName,
     [property: JsonPropertyName("searchText")] string SearchText)
 {
     public string Label => $"{Name} ({ChampionId})";

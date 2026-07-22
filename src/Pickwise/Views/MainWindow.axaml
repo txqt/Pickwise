@@ -52,17 +52,50 @@
                 </StackPanel>
             </Border>
 
-            <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
+            <Border Background="#071316" CornerRadius="12" Padding="16">
                 <StackPanel Spacing="10">
-                    <TextBlock Text="Champion Select" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding ChampionSelect}" />
+                    <TextBlock Text="Champion Select" FontWeight="SemiBold" Foreground="#d6e7e7" />
+                    <TextBlock Text="{Binding ChampionSelect}" Foreground="#8ba3a3" />
                     <TextBox Watermark="Search champion" Text="{Binding ChampionSearch}" />
                     <ListBox ItemsSource="{Binding Champions}"
-                             SelectedItem="{Binding SelectedChampion}"
-                             MaxHeight="180">
+                             SelectedItem="{Binding SelectedChampionTile}"
+                             MaxHeight="300"
+                             Background="#0b1d22"
+                             BorderBrush="#21404a"
+                             BorderThickness="1">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Label}" />
+                                <Border Width="72" Padding="4" Margin="3" Background="#10242a" BorderBrush="#2e5661" BorderThickness="1">
+                                    <StackPanel Spacing="4">
+                                        <Grid Width="56" Height="56" HorizontalAlignment="Center">
+                                            <Image Source="{Binding Icon}"
+                                                   Width="56"
+                                                   Height="56"
+                                                   Stretch="UniformToFill"
+                                                   IsVisible="{Binding HasIcon}" />
+                                            <Border Background="#16292f"
+                                                    BorderBrush="#40545a"
+                                                    BorderThickness="1"
+                                                    IsVisible="{Binding HasNoIcon}">
+                                                <TextBlock Text="?"
+                                                           Foreground="#8ba3a3"
+                                                           FontSize="24"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+                                        </Grid>
+                                        <TextBlock Text="{Binding Name}"
+                                                   Foreground="#c6d5d5"
+                                                   FontSize="11"
+                                                   TextAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Border>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>

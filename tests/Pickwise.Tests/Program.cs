@@ -44,6 +44,7 @@ static void AssertChampionCatalogSearchWorks()
     Assert(catalog.All.Count > 100, "catalog loads champion list");
     Assert(catalog.Search("ahri").Any(champion => champion.Name == "Ahri" && champion.ChampionId == 103), "finds Ahri by lowercase name");
     Assert(catalog.Search("AAT").Any(champion => champion.Name == "Aatrox" && champion.ChampionId == 266), "search is case-insensitive");
+    Assert(catalog.All.Any(champion => champion.ChampionId == 62 && champion.ImageFileName == "MonkeyKing.png"), "catalog keeps Data Dragon image names");
 }
 
 static void AssertGameModeCatalogWorks()

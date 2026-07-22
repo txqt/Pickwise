@@ -12,6 +12,9 @@ public partial class MainViewModel : ViewModelBase
     private readonly LocalDiagnosticLog _log;
     private readonly ChampionCatalog _championCatalog;
     private readonly GameModeCatalog _gameModeCatalog;
+    private readonly ChampionIconCache _championIconCache;
+    private readonly IReadOnlyList<ChampionTileViewModel> _allChampionTiles;
+    private readonly IReadOnlyDictionary<int, ChampionTileViewModel> _championTilesById;
     private readonly CancellationTokenSource _polling = new();
 
     [ObservableProperty]
@@ -36,7 +39,10 @@ public partial class MainViewModel : ViewModelBase
     private Champion? _selectedChampion;
 
     [ObservableProperty]
-    private IReadOnlyList<Champion> _champions = [];
+    private ChampionTileViewModel? _selectedChampionTile;
+
+    [ObservableProperty]
+    private IReadOnlyList<ChampionTileViewModel> _champions = [];
 
     [ObservableProperty]
     private GameMode? _selectedGameMode;
@@ -56,19 +62,23 @@ public partial class MainViewModel : ViewModelBase
     {
     }
 
-    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log) : this(lcu, log, new ChampionCatalog(), new GameModeCatalog())
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log) : this(lcu, log, new ChampionCatalog(), new GameModeCatalog(), new ChampionIconCache(log))
     {
     }
 
-    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionCatalog championCatalog, GameModeCatalog gameModeCatalog)
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionCatalog championCatalog, GameModeCatalog gameModeCatalog, ChampionIconCache championIconCache)
     {
         _lcu = lcu;
         _log = log;
         _championCatalog = championCatalog;
         _gameModeCatalog = gameModeCatalog;
-        Champions = _championCatalog.Search("");
+        _championIconCache = championIconCache;
+        _allChampionTiles = _championCatalog.All.Select(champion => new ChampionTileViewModel(champion)).ToList();
+        _championTilesById = _allChampionTiles.ToDictionary(tile => tile.Champion.ChampionId);
+        Champions = _allChampionTiles;
         GameModes = _gameModeCatalog.All;
         SelectedGameMode = GameModes.FirstOrDefault();
+        _ = Task.Run(() => LoadChampionIconsAsync(_polling.Token));
         _ = Task.Run(() => PollAsync(_polling.Token));
     }
 
@@ -87,7 +97,14 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnChampionSearchChanged(string value)
     {
-        Champions = _championCatalog.Search(value);
+        Champions = _championCatalog.Search(value)
+            .Select(champion => _championTilesById[champion.ChampionId])
+            .ToList();
+    }
+
+    partial void OnSelectedChampionTileChanged(ChampionTileViewModel? value)
+    {
+        SelectedChampion = value?.Champion;
     }
 
     partial void OnSelectedChampionChanged(Champion? value)
@@ -151,6 +168,28 @@ public partial class MainViewModel : ViewModelBase
             }
 
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task LoadChampionIconsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            foreach (var tile in _allChampionTiles)
+            {
+                var icon = await _championIconCache.LoadAsync(tile.Champion, cancellationToken).ConfigureAwait(false);
+                if (icon is not null)
+                {
+                    Dispatcher.UIThread.Post(() => tile.Icon = icon);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Champion icon loading failed", exception);
         }
     }
 

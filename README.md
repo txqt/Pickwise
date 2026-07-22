@@ -9,7 +9,7 @@ Pickwise is a local Windows desktop companion for League of Legends. It connects
 - Shows Ready Check state.
 - Lets the player click Accept or Decline.
 - Shows Champion Select state.
-- Lets the player click Pick or Ban by champion ID.
+- Lets the player search a champion and click Pick or Ban.
 - Writes local diagnostic and crash logs.
 
 Pickwise does not auto-accept, auto-pick, auto-ban, run an overlay, store Riot credentials, or use a backend.

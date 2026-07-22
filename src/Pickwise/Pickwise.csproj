@@ -11,6 +11,7 @@
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
     <Content Include="Assets\avalonia-logo.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\champions.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

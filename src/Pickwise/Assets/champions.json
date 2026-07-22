@@ -1,0 +1,867 @@
+﻿[
+    {
+        "championId":  266,
+        "name":  "Aatrox",
+        "searchText":  "aatrox aatrox"
+    },
+    {
+        "championId":  103,
+        "name":  "Ahri",
+        "searchText":  "ahri ahri"
+    },
+    {
+        "championId":  84,
+        "name":  "Akali",
+        "searchText":  "akali akali"
+    },
+    {
+        "championId":  166,
+        "name":  "Akshan",
+        "searchText":  "akshan akshan"
+    },
+    {
+        "championId":  12,
+        "name":  "Alistar",
+        "searchText":  "alistar alistar"
+    },
+    {
+        "championId":  799,
+        "name":  "Ambessa",
+        "searchText":  "ambessa ambessa"
+    },
+    {
+        "championId":  32,
+        "name":  "Amumu",
+        "searchText":  "amumu amumu"
+    },
+    {
+        "championId":  34,
+        "name":  "Anivia",
+        "searchText":  "anivia anivia"
+    },
+    {
+        "championId":  1,
+        "name":  "Annie",
+        "searchText":  "annie annie"
+    },
+    {
+        "championId":  523,
+        "name":  "Aphelios",
+        "searchText":  "aphelios aphelios"
+    },
+    {
+        "championId":  22,
+        "name":  "Ashe",
+        "searchText":  "ashe ashe"
+    },
+    {
+        "championId":  136,
+        "name":  "Aurelion Sol",
+        "searchText":  "aurelion sol aurelionsol"
+    },
+    {
+        "championId":  893,
+        "name":  "Aurora",
+        "searchText":  "aurora aurora"
+    },
+    {
+        "championId":  268,
+        "name":  "Azir",
+        "searchText":  "azir azir"
+    },
+    {
+        "championId":  432,
+        "name":  "Bard",
+        "searchText":  "bard bard"
+    },
+    {
+        "championId":  200,
+        "name":  "Bel\u0027Veth",
+        "searchText":  "bel\u0027veth belveth"
+    },
+    {
+        "championId":  53,
+        "name":  "Blitzcrank",
+        "searchText":  "blitzcrank blitzcrank"
+    },
+    {
+        "championId":  63,
+        "name":  "Brand",
+        "searchText":  "brand brand"
+    },
+    {
+        "championId":  201,
+        "name":  "Braum",
+        "searchText":  "braum braum"
+    },
+    {
+        "championId":  233,
+        "name":  "Briar",
+        "searchText":  "briar briar"
+    },
+    {
+        "championId":  51,
+        "name":  "Caitlyn",
+        "searchText":  "caitlyn caitlyn"
+    },
+    {
+        "championId":  164,
+        "name":  "Camille",
+        "searchText":  "camille camille"
+    },
+    {
+        "championId":  69,
+        "name":  "Cassiopeia",
+        "searchText":  "cassiopeia cassiopeia"
+    },
+    {
+        "championId":  31,
+        "name":  "Cho\u0027Gath",
+        "searchText":  "cho\u0027gath chogath"
+    },
+    {
+        "championId":  42,
+        "name":  "Corki",
+        "searchText":  "corki corki"
+    },
+    {
+        "championId":  122,
+        "name":  "Darius",
+        "searchText":  "darius darius"
+    },
+    {
+        "championId":  131,
+        "name":  "Diana",
+        "searchText":  "diana diana"
+    },
+    {
+        "championId":  36,
+        "name":  "Dr. Mundo",
+        "searchText":  "dr. mundo drmundo"
+    },
+    {
+        "championId":  119,
+        "name":  "Draven",
+        "searchText":  "draven draven"
+    },
+    {
+        "championId":  245,
+        "name":  "Ekko",
+        "searchText":  "ekko ekko"
+    },
+    {
+        "championId":  60,
+        "name":  "Elise",
+        "searchText":  "elise elise"
+    },
+    {
+        "championId":  28,
+        "name":  "Evelynn",
+        "searchText":  "evelynn evelynn"
+    },
+    {
+        "championId":  81,
+        "name":  "Ezreal",
+        "searchText":  "ezreal ezreal"
+    },
+    {
+        "championId":  9,
+        "name":  "Fiddlesticks",
+        "searchText":  "fiddlesticks fiddlesticks"
+    },
+    {
+        "championId":  114,
+        "name":  "Fiora",
+        "searchText":  "fiora fiora"
+    },
+    {
+        "championId":  105,
+        "name":  "Fizz",
+        "searchText":  "fizz fizz"
+    },
+    {
+        "championId":  3,
+        "name":  "Galio",
+        "searchText":  "galio galio"
+    },
+    {
+        "championId":  41,
+        "name":  "Gangplank",
+        "searchText":  "gangplank gangplank"
+    },
+    {
+        "championId":  86,
+        "name":  "Garen",
+        "searchText":  "garen garen"
+    },
+    {
+        "championId":  150,
+        "name":  "Gnar",
+        "searchText":  "gnar gnar"
+    },
+    {
+        "championId":  79,
+        "name":  "Gragas",
+        "searchText":  "gragas gragas"
+    },
+    {
+        "championId":  104,
+        "name":  "Graves",
+        "searchText":  "graves graves"
+    },
+    {
+        "championId":  887,
+        "name":  "Gwen",
+        "searchText":  "gwen gwen"
+    },
+    {
+        "championId":  120,
+        "name":  "Hecarim",
+        "searchText":  "hecarim hecarim"
+    },
+    {
+        "championId":  74,
+        "name":  "Heimerdinger",
+        "searchText":  "heimerdinger heimerdinger"
+    },
+    {
+        "championId":  910,
+        "name":  "Hwei",
+        "searchText":  "hwei hwei"
+    },
+    {
+        "championId":  420,
+        "name":  "Illaoi",
+        "searchText":  "illaoi illaoi"
+    },
+    {
+        "championId":  39,
+        "name":  "Irelia",
+        "searchText":  "irelia irelia"
+    },
+    {
+        "championId":  427,
+        "name":  "Ivern",
+        "searchText":  "ivern ivern"
+    },
+    {
+        "championId":  40,
+        "name":  "Janna",
+        "searchText":  "janna janna"
+    },
+    {
+        "championId":  59,
+        "name":  "Jarvan IV",
+        "searchText":  "jarvan iv jarvaniv"
+    },
+    {
+        "championId":  24,
+        "name":  "Jax",
+        "searchText":  "jax jax"
+    },
+    {
+        "championId":  126,
+        "name":  "Jayce",
+        "searchText":  "jayce jayce"
+    },
+    {
+        "championId":  202,
+        "name":  "Jhin",
+        "searchText":  "jhin jhin"
+    },
+    {
+        "championId":  222,
+        "name":  "Jinx",
+        "searchText":  "jinx jinx"
+    },
+    {
+        "championId":  145,
+        "name":  "Kai\u0027Sa",
+        "searchText":  "kai\u0027sa kaisa"
+    },
+    {
+        "championId":  429,
+        "name":  "Kalista",
+        "searchText":  "kalista kalista"
+    },
+    {
+        "championId":  43,
+        "name":  "Karma",
+        "searchText":  "karma karma"
+    },
+    {
+        "championId":  30,
+        "name":  "Karthus",
+        "searchText":  "karthus karthus"
+    },
+    {
+        "championId":  38,
+        "name":  "Kassadin",
+        "searchText":  "kassadin kassadin"
+    },
+    {
+        "championId":  55,
+        "name":  "Katarina",
+        "searchText":  "katarina katarina"
+    },
+    {
+        "championId":  10,
+        "name":  "Kayle",
+        "searchText":  "kayle kayle"
+    },
+    {
+        "championId":  141,
+        "name":  "Kayn",
+        "searchText":  "kayn kayn"
+    },
+    {
+        "championId":  85,
+        "name":  "Kennen",
+        "searchText":  "kennen kennen"
+    },
+    {
+        "championId":  121,
+        "name":  "Kha\u0027Zix",
+        "searchText":  "kha\u0027zix khazix"
+    },
+    {
+        "championId":  203,
+        "name":  "Kindred",
+        "searchText":  "kindred kindred"
+    },
+    {
+        "championId":  240,
+        "name":  "Kled",
+        "searchText":  "kled kled"
+    },
+    {
+        "championId":  96,
+        "name":  "Kog\u0027Maw",
+        "searchText":  "kog\u0027maw kogmaw"
+    },
+    {
+        "championId":  897,
+        "name":  "K\u0027Sante",
+        "searchText":  "k\u0027sante ksante"
+    },
+    {
+        "championId":  7,
+        "name":  "LeBlanc",
+        "searchText":  "leblanc leblanc"
+    },
+    {
+        "championId":  64,
+        "name":  "Lee Sin",
+        "searchText":  "lee sin leesin"
+    },
+    {
+        "championId":  89,
+        "name":  "Leona",
+        "searchText":  "leona leona"
+    },
+    {
+        "championId":  876,
+        "name":  "Lillia",
+        "searchText":  "lillia lillia"
+    },
+    {
+        "championId":  127,
+        "name":  "Lissandra",
+        "searchText":  "lissandra lissandra"
+    },
+    {
+        "championId":  805,
+        "name":  "Locke",
+        "searchText":  "locke locke"
+    },
+    {
+        "championId":  236,
+        "name":  "Lucian",
+        "searchText":  "lucian lucian"
+    },
+    {
+        "championId":  117,
+        "name":  "Lulu",
+        "searchText":  "lulu lulu"
+    },
+    {
+        "championId":  99,
+        "name":  "Lux",
+        "searchText":  "lux lux"
+    },
+    {
+        "championId":  54,
+        "name":  "Malphite",
+        "searchText":  "malphite malphite"
+    },
+    {
+        "championId":  90,
+        "name":  "Malzahar",
+        "searchText":  "malzahar malzahar"
+    },
+    {
+        "championId":  57,
+        "name":  "Maokai",
+        "searchText":  "maokai maokai"
+    },
+    {
+        "championId":  11,
+        "name":  "Master Yi",
+        "searchText":  "master yi masteryi"
+    },
+    {
+        "championId":  800,
+        "name":  "Mel",
+        "searchText":  "mel mel"
+    },
+    {
+        "championId":  902,
+        "name":  "Milio",
+        "searchText":  "milio milio"
+    },
+    {
+        "championId":  21,
+        "name":  "Miss Fortune",
+        "searchText":  "miss fortune missfortune"
+    },
+    {
+        "championId":  82,
+        "name":  "Mordekaiser",
+        "searchText":  "mordekaiser mordekaiser"
+    },
+    {
+        "championId":  25,
+        "name":  "Morgana",
+        "searchText":  "morgana morgana"
+    },
+    {
+        "championId":  950,
+        "name":  "Naafiri",
+        "searchText":  "naafiri naafiri"
+    },
+    {
+        "championId":  267,
+        "name":  "Nami",
+        "searchText":  "nami nami"
+    },
+    {
+        "championId":  75,
+        "name":  "Nasus",
+        "searchText":  "nasus nasus"
+    },
+    {
+        "championId":  111,
+        "name":  "Nautilus",
+        "searchText":  "nautilus nautilus"
+    },
+    {
+        "championId":  518,
+        "name":  "Neeko",
+        "searchText":  "neeko neeko"
+    },
+    {
+        "championId":  76,
+        "name":  "Nidalee",
+        "searchText":  "nidalee nidalee"
+    },
+    {
+        "championId":  895,
+        "name":  "Nilah",
+        "searchText":  "nilah nilah"
+    },
+    {
+        "championId":  56,
+        "name":  "Nocturne",
+        "searchText":  "nocturne nocturne"
+    },
+    {
+        "championId":  20,
+        "name":  "Nunu \u0026 Willump",
+        "searchText":  "nunu \u0026 willump nunu"
+    },
+    {
+        "championId":  2,
+        "name":  "Olaf",
+        "searchText":  "olaf olaf"
+    },
+    {
+        "championId":  61,
+        "name":  "Orianna",
+        "searchText":  "orianna orianna"
+    },
+    {
+        "championId":  516,
+        "name":  "Ornn",
+        "searchText":  "ornn ornn"
+    },
+    {
+        "championId":  80,
+        "name":  "Pantheon",
+        "searchText":  "pantheon pantheon"
+    },
+    {
+        "championId":  78,
+        "name":  "Poppy",
+        "searchText":  "poppy poppy"
+    },
+    {
+        "championId":  555,
+        "name":  "Pyke",
+        "searchText":  "pyke pyke"
+    },
+    {
+        "championId":  246,
+        "name":  "Qiyana",
+        "searchText":  "qiyana qiyana"
+    },
+    {
+        "championId":  133,
+        "name":  "Quinn",
+        "searchText":  "quinn quinn"
+    },
+    {
+        "championId":  497,
+        "name":  "Rakan",
+        "searchText":  "rakan rakan"
+    },
+    {
+        "championId":  33,
+        "name":  "Rammus",
+        "searchText":  "rammus rammus"
+    },
+    {
+        "championId":  421,
+        "name":  "Rek\u0027Sai",
+        "searchText":  "rek\u0027sai reksai"
+    },
+    {
+        "championId":  526,
+        "name":  "Rell",
+        "searchText":  "rell rell"
+    },
+    {
+        "championId":  888,
+        "name":  "Renata Glasc",
+        "searchText":  "renata glasc renata"
+    },
+    {
+        "championId":  58,
+        "name":  "Renekton",
+        "searchText":  "renekton renekton"
+    },
+    {
+        "championId":  107,
+        "name":  "Rengar",
+        "searchText":  "rengar rengar"
+    },
+    {
+        "championId":  92,
+        "name":  "Riven",
+        "searchText":  "riven riven"
+    },
+    {
+        "championId":  68,
+        "name":  "Rumble",
+        "searchText":  "rumble rumble"
+    },
+    {
+        "championId":  13,
+        "name":  "Ryze",
+        "searchText":  "ryze ryze"
+    },
+    {
+        "championId":  360,
+        "name":  "Samira",
+        "searchText":  "samira samira"
+    },
+    {
+        "championId":  113,
+        "name":  "Sejuani",
+        "searchText":  "sejuani sejuani"
+    },
+    {
+        "championId":  235,
+        "name":  "Senna",
+        "searchText":  "senna senna"
+    },
+    {
+        "championId":  147,
+        "name":  "Seraphine",
+        "searchText":  "seraphine seraphine"
+    },
+    {
+        "championId":  875,
+        "name":  "Sett",
+        "searchText":  "sett sett"
+    },
+    {
+        "championId":  35,
+        "name":  "Shaco",
+        "searchText":  "shaco shaco"
+    },
+    {
+        "championId":  98,
+        "name":  "Shen",
+        "searchText":  "shen shen"
+    },
+    {
+        "championId":  102,
+        "name":  "Shyvana",
+        "searchText":  "shyvana shyvana"
+    },
+    {
+        "championId":  27,
+        "name":  "Singed",
+        "searchText":  "singed singed"
+    },
+    {
+        "championId":  14,
+        "name":  "Sion",
+        "searchText":  "sion sion"
+    },
+    {
+        "championId":  15,
+        "name":  "Sivir",
+        "searchText":  "sivir sivir"
+    },
+    {
+        "championId":  72,
+        "name":  "Skarner",
+        "searchText":  "skarner skarner"
+    },
+    {
+        "championId":  901,
+        "name":  "Smolder",
+        "searchText":  "smolder smolder"
+    },
+    {
+        "championId":  37,
+        "name":  "Sona",
+        "searchText":  "sona sona"
+    },
+    {
+        "championId":  16,
+        "name":  "Soraka",
+        "searchText":  "soraka soraka"
+    },
+    {
+        "championId":  50,
+        "name":  "Swain",
+        "searchText":  "swain swain"
+    },
+    {
+        "championId":  517,
+        "name":  "Sylas",
+        "searchText":  "sylas sylas"
+    },
+    {
+        "championId":  134,
+        "name":  "Syndra",
+        "searchText":  "syndra syndra"
+    },
+    {
+        "championId":  223,
+        "name":  "Tahm Kench",
+        "searchText":  "tahm kench tahmkench"
+    },
+    {
+        "championId":  163,
+        "name":  "Taliyah",
+        "searchText":  "taliyah taliyah"
+    },
+    {
+        "championId":  91,
+        "name":  "Talon",
+        "searchText":  "talon talon"
+    },
+    {
+        "championId":  44,
+        "name":  "Taric",
+        "searchText":  "taric taric"
+    },
+    {
+        "championId":  17,
+        "name":  "Teemo",
+        "searchText":  "teemo teemo"
+    },
+    {
+        "championId":  412,
+        "name":  "Thresh",
+        "searchText":  "thresh thresh"
+    },
+    {
+        "championId":  18,
+        "name":  "Tristana",
+        "searchText":  "tristana tristana"
+    },
+    {
+        "championId":  48,
+        "name":  "Trundle",
+        "searchText":  "trundle trundle"
+    },
+    {
+        "championId":  23,
+        "name":  "Tryndamere",
+        "searchText":  "tryndamere tryndamere"
+    },
+    {
+        "championId":  4,
+        "name":  "Twisted Fate",
+        "searchText":  "twisted fate twistedfate"
+    },
+    {
+        "championId":  29,
+        "name":  "Twitch",
+        "searchText":  "twitch twitch"
+    },
+    {
+        "championId":  77,
+        "name":  "Udyr",
+        "searchText":  "udyr udyr"
+    },
+    {
+        "championId":  6,
+        "name":  "Urgot",
+        "searchText":  "urgot urgot"
+    },
+    {
+        "championId":  110,
+        "name":  "Varus",
+        "searchText":  "varus varus"
+    },
+    {
+        "championId":  67,
+        "name":  "Vayne",
+        "searchText":  "vayne vayne"
+    },
+    {
+        "championId":  45,
+        "name":  "Veigar",
+        "searchText":  "veigar veigar"
+    },
+    {
+        "championId":  161,
+        "name":  "Vel\u0027Koz",
+        "searchText":  "vel\u0027koz velkoz"
+    },
+    {
+        "championId":  711,
+        "name":  "Vex",
+        "searchText":  "vex vex"
+    },
+    {
+        "championId":  254,
+        "name":  "Vi",
+        "searchText":  "vi vi"
+    },
+    {
+        "championId":  234,
+        "name":  "Viego",
+        "searchText":  "viego viego"
+    },
+    {
+        "championId":  112,
+        "name":  "Viktor",
+        "searchText":  "viktor viktor"
+    },
+    {
+        "championId":  8,
+        "name":  "Vladimir",
+        "searchText":  "vladimir vladimir"
+    },
+    {
+        "championId":  106,
+        "name":  "Volibear",
+        "searchText":  "volibear volibear"
+    },
+    {
+        "championId":  19,
+        "name":  "Warwick",
+        "searchText":  "warwick warwick"
+    },
+    {
+        "championId":  62,
+        "name":  "Wukong",
+        "searchText":  "wukong monkeyking"
+    },
+    {
+        "championId":  498,
+        "name":  "Xayah",
+        "searchText":  "xayah xayah"
+    },
+    {
+        "championId":  101,
+        "name":  "Xerath",
+        "searchText":  "xerath xerath"
+    },
+    {
+        "championId":  5,
+        "name":  "Xin Zhao",
+        "searchText":  "xin zhao xinzhao"
+    },
+    {
+        "championId":  157,
+        "name":  "Yasuo",
+        "searchText":  "yasuo yasuo"
+    },
+    {
+        "championId":  777,
+        "name":  "Yone",
+        "searchText":  "yone yone"
+    },
+    {
+        "championId":  83,
+        "name":  "Yorick",
+        "searchText":  "yorick yorick"
+    },
+    {
+        "championId":  804,
+        "name":  "Yunara",
+        "searchText":  "yunara yunara"
+    },
+    {
+        "championId":  350,
+        "name":  "Yuumi",
+        "searchText":  "yuumi yuumi"
+    },
+    {
+        "championId":  904,
+        "name":  "Zaahen",
+        "searchText":  "zaahen zaahen"
+    },
+    {
+        "championId":  154,
+        "name":  "Zac",
+        "searchText":  "zac zac"
+    },
+    {
+        "championId":  238,
+        "name":  "Zed",
+        "searchText":  "zed zed"
+    },
+    {
+        "championId":  221,
+        "name":  "Zeri",
+        "searchText":  "zeri zeri"
+    },
+    {
+        "championId":  115,
+        "name":  "Ziggs",
+        "searchText":  "ziggs ziggs"
+    },
+    {
+        "championId":  26,
+        "name":  "Zilean",
+        "searchText":  "zilean zilean"
+    },
+    {
+        "championId":  142,
+        "name":  "Zoe",
+        "searchText":  "zoe zoe"
+    },
+    {
+        "championId":  143,
+        "name":  "Zyra",
+        "searchText":  "zyra zyra"
+    }
+]

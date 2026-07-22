@@ -10,6 +10,7 @@ public partial class MainViewModel : ViewModelBase
 {
     private readonly ILcuClient _lcu;
     private readonly LocalDiagnosticLog _log;
+    private readonly ChampionCatalog _championCatalog;
     private readonly CancellationTokenSource _polling = new();
 
     [ObservableProperty]
@@ -28,23 +29,35 @@ public partial class MainViewModel : ViewModelBase
     private string _championSelect = "Not in champion select";
 
     [ObservableProperty]
-    private string _championId = "";
+    private string _championSearch = "";
+
+    [ObservableProperty]
+    private Champion? _selectedChampion;
+
+    [ObservableProperty]
+    private IReadOnlyList<Champion> _champions = [];
 
     [ObservableProperty]
     private string _lastCommandResult = "";
 
     public string LogPath => _log.Path;
     public bool CanRespondReadyCheck => Phase == AppPhase.ReadyCheck;
-    public bool CanChampionCommand => Phase == AppPhase.ChampionSelect && int.TryParse(ChampionId, out var id) && id > 0;
+    public bool CanChampionCommand => Phase == AppPhase.ChampionSelect && SelectedChampion is not null;
 
     public MainViewModel() : this(CreateDefaultLog())
     {
     }
 
-    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log)
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log) : this(lcu, log, new ChampionCatalog())
+    {
+    }
+
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionCatalog championCatalog)
     {
         _lcu = lcu;
         _log = log;
+        _championCatalog = championCatalog;
+        Champions = _championCatalog.Search("");
         _ = Task.Run(() => PollAsync(_polling.Token));
     }
 
@@ -60,7 +73,12 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanChampionCommand));
     }
 
-    partial void OnChampionIdChanged(string value)
+    partial void OnChampionSearchChanged(string value)
+    {
+        Champions = _championCatalog.Search(value);
+    }
+
+    partial void OnSelectedChampionChanged(Champion? value)
     {
         OnPropertyChanged(nameof(CanChampionCommand));
         PickCommand.NotifyCanExecuteChanged();
@@ -129,13 +147,13 @@ public partial class MainViewModel : ViewModelBase
 
     private async Task RunChampionCommandAsync(Func<int, CancellationToken, Task> command, string success)
     {
-        if (!int.TryParse(ChampionId, out var championId) || championId <= 0)
+        if (SelectedChampion is null)
         {
-            LastCommandResult = "Enter a champion id first";
+            LastCommandResult = "Select a champion first";
             return;
         }
 
-        await RunCommandAsync(token => command(championId, token), success);
+        await RunCommandAsync(token => command(SelectedChampion.ChampionId, token), success);
     }
 
     private async Task RunCommandAsync(Func<CancellationToken, Task> command, string success)

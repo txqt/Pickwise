@@ -16,6 +16,7 @@ var session = new ChampionSelectSession(
 
 Assert(session.CurrentAction("ban")?.Id == 2, "finds active local ban action");
 Assert(session.CurrentAction("pick") is null, "ignores inactive pick action");
+AssertChampionCatalogSearchWorks();
 AssertConstructorDoesNotBlockOnSlowLcu();
 Console.WriteLine("Pickwise self-checks passed.");
 
@@ -33,6 +34,14 @@ static void AssertConstructorDoesNotBlockOnSlowLcu()
     _ = new MainViewModel(new SlowLcuClient(), new LocalDiagnosticLog());
     stopwatch.Stop();
     Assert(stopwatch.ElapsedMilliseconds < 200, "MainViewModel constructor blocks on LCU polling");
+}
+
+static void AssertChampionCatalogSearchWorks()
+{
+    var catalog = new ChampionCatalog();
+    Assert(catalog.All.Count > 100, "catalog loads champion list");
+    Assert(catalog.Search("ahri").Any(champion => champion.Name == "Ahri" && champion.ChampionId == 103), "finds Ahri by lowercase name");
+    Assert(catalog.Search("AAT").Any(champion => champion.Name == "Aatrox" && champion.ChampionId == 266), "search is case-insensitive");
 }
 
 sealed class SlowLcuClient : ILcuClient

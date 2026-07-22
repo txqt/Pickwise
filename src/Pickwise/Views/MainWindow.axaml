@@ -40,7 +40,16 @@
                 <StackPanel Spacing="10">
                     <TextBlock Text="Champion Select" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding ChampionSelect}" />
-                    <TextBox Watermark="Champion ID" Text="{Binding ChampionId}" />
+                    <TextBox Watermark="Search champion" Text="{Binding ChampionSearch}" />
+                    <ListBox ItemsSource="{Binding Champions}"
+                             SelectedItem="{Binding SelectedChampion}"
+                             MaxHeight="180">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <Button Content="Pick" Command="{Binding PickCommand}" />
                         <Button Content="Ban" Command="{Binding BanCommand}" />

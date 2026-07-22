@@ -85,6 +85,14 @@ artifacts\Pickwise-win-x64.zip
 
 This is a framework-dependent build. The target machine needs the .NET 8 Desktop Runtime installed. To run it, unzip the archive and start `Pickwise.exe`.
 
+## Download release
+
+Public test builds are available on the GitHub Releases page:
+
+```text
+https://github.com/txqt/Pickwise/releases
+```
+
 ## Logs
 
 ```text

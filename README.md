@@ -6,7 +6,7 @@ Pickwise is a local Windows desktop companion for League of Legends. It connects
 
 - Detects the local League Client.
 - Shows the current summoner.
-- Creates Normal Draft 5v5 or ARAM lobbies from explicit player clicks.
+- Creates Normal Draft 5v5, ARAM, or ARAM Mayhem lobbies from explicit player clicks.
 - Shows Ready Check state.
 - Lets the player click Accept or Decline.
 - Shows Champion Select state.

@@ -11,3 +11,5 @@ Track every League Client endpoint before public release.
 | Ready Check command | `POST /lol-matchmaking/v1/ready-check/accept`, `POST /lol-matchmaking/v1/ready-check/decline` | Write | Player Command | Accept or decline when the player clicks in the app. | Write endpoint; must be disclosed to Riot. No auto accept. |
 | Champion Select observe | `GET /lol-champ-select/v1/session`, or `OnJsonApiEvent` for `/lol-champ-select/v1/session` | Read | Automatic | Show current champion select state. | Read-only observation. |
 | Champion Select command | `PATCH /lol-champ-select/v1/session/actions/{id}` | Write | Player Command | Pick or ban only after explicit player click. | Write endpoint; must be disclosed to Riot. No auto pick/ban. |
+
+Temporary queues such as ARAM Mayhem (`queueId 2400`) may be unavailable outside Riot's event/region rollout. Pickwise should surface the LCU error instead of silently falling back to another queue.

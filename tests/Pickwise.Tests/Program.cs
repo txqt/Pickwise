@@ -51,6 +51,7 @@ static void AssertGameModeCatalogWorks()
     var catalog = new GameModeCatalog();
     Assert(catalog.All.Any(mode => mode.Name == "Normal Draft 5v5" && mode.QueueId == 400), "catalog contains Normal Draft 5v5 queue");
     Assert(catalog.All.Any(mode => mode.Name == "ARAM" && mode.QueueId == 450), "catalog contains ARAM queue");
+    Assert(catalog.All.Any(mode => mode.Name == "ARAM Mayhem" && mode.QueueId == 2400), "catalog contains ARAM Mayhem queue");
 }
 
 static void AssertLcuLockfileParserWorks()

@@ -15,6 +15,7 @@ Pickwise provides a compact desktop control panel for common League Client flows
 - Detect the local running League Client.
 - Show the currently signed-in summoner.
 - Create a player-selected lobby for supported queues.
+- Start or cancel matchmaking for the current lobby only after the player clicks the button.
 - Show ready-check state.
 - Accept or decline ready check only after the player clicks the button.
 - Show champion-select state.
@@ -26,7 +27,7 @@ Pickwise provides a compact desktop control panel for common League Client flows
 
 - No auto-accept.
 - No auto-pick or auto-ban.
-- No automatic matchmaking start.
+- No automatic matchmaking start; matchmaking starts only after clicking Find Match.
 - No gameplay automation.
 - No memory reading.
 - No backend account system.

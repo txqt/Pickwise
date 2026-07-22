@@ -37,7 +37,11 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <Button Content="Create Lobby" Command="{Binding CreateLobbyCommand}" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Content="Create Lobby" Command="{Binding CreateLobbyCommand}" />
+                        <Button Content="Find Match" Command="{Binding StartMatchmakingCommand}" />
+                        <Button Content="Cancel Search" Command="{Binding CancelMatchmakingCommand}" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

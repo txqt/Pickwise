@@ -73,6 +73,7 @@ public partial class MainViewModel : ViewModelBase
     public bool CanRespondReadyCheck => Phase == AppPhase.ReadyCheck;
     public bool CanChampionCommand => Phase == AppPhase.ChampionSelect && SelectedChampion is not null;
     public bool CanCreateLobby => Phase == AppPhase.Connected && SelectedGameMode is not null;
+    public bool CanUseMatchmaking => Phase == AppPhase.Connected;
 
     public MainViewModel() : this(CreateDefaultLog())
     {
@@ -109,6 +110,7 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanRespondReadyCheck));
         OnPropertyChanged(nameof(CanChampionCommand));
         OnPropertyChanged(nameof(CanCreateLobby));
+        OnPropertyChanged(nameof(CanUseMatchmaking));
     }
 
     partial void OnChampionSearchChanged(string value)
@@ -169,6 +171,12 @@ public partial class MainViewModel : ViewModelBase
             token => _lcu.CreateLobbyAsync(SelectedGameMode.QueueId, token),
             $"Created {SelectedGameMode.Name} lobby");
     }
+
+    [RelayCommand(CanExecute = nameof(CanUseMatchmaking))]
+    private Task StartMatchmakingAsync() => RunCommandAsync(_lcu.StartMatchmakingAsync, "Started matchmaking");
+
+    [RelayCommand(CanExecute = nameof(CanUseMatchmaking))]
+    private Task CancelMatchmakingAsync() => RunCommandAsync(_lcu.CancelMatchmakingAsync, "Cancelled matchmaking");
 
     [RelayCommand(CanExecute = nameof(CanChampionCommand))]
     private Task PickAsync() => RunChampionCommandAsync(_lcu.PickChampionAsync, "Pick submitted");
@@ -243,6 +251,8 @@ public partial class MainViewModel : ViewModelBase
         AcceptCommand.NotifyCanExecuteChanged();
         DeclineCommand.NotifyCanExecuteChanged();
         CreateLobbyCommand.NotifyCanExecuteChanged();
+        StartMatchmakingCommand.NotifyCanExecuteChanged();
+        CancelMatchmakingCommand.NotifyCanExecuteChanged();
         PickCommand.NotifyCanExecuteChanged();
         BanCommand.NotifyCanExecuteChanged();
     }

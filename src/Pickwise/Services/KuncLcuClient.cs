@@ -63,22 +63,36 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
     public async Task AcceptReadyCheckAsync(CancellationToken cancellationToken)
     {
         using var response = await SendJsonAsync(HttpMethod.Post, "lol-matchmaking/v1/ready-check/accept", new { }, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
         _log.Info("Ready Check accepted by Player Command");
     }
 
     public async Task DeclineReadyCheckAsync(CancellationToken cancellationToken)
     {
         using var response = await SendJsonAsync(HttpMethod.Post, "lol-matchmaking/v1/ready-check/decline", new { }, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
         _log.Info("Ready Check declined by Player Command");
     }
 
     public async Task CreateLobbyAsync(int queueId, CancellationToken cancellationToken)
     {
         using var response = await SendJsonAsync(HttpMethod.Post, "lol-lobby/v2/lobby", new { queueId }, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
         _log.Info($"Lobby created by Player Command: queueId={queueId}");
+    }
+
+    public async Task StartMatchmakingAsync(CancellationToken cancellationToken)
+    {
+        using var response = await SendJsonAsync(HttpMethod.Post, "lol-lobby/v2/lobby/matchmaking/search", new { }, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        _log.Info("Matchmaking started by Player Command");
+    }
+
+    public async Task CancelMatchmakingAsync(CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(HttpMethod.Delete, "lol-lobby/v2/lobby/matchmaking/search", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        _log.Info("Matchmaking cancelled by Player Command");
     }
 
     public Task PickChampionAsync(int championId, CancellationToken cancellationToken) =>
@@ -117,8 +131,21 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
         var action = session?.CurrentAction(type) ?? throw new InvalidOperationException($"No active {type} action.");
 
         using var response = await SendJsonAsync(HttpMethod.Patch, $"lol-champ-select/v1/session/actions/{action.Id}", new { championId, completed = true }, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
         _log.Info($"Champion {type} submitted by Player Command");
+    }
+
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var error = await response.Content.ReadAsStringAsync(cancellationToken);
+        throw new InvalidOperationException(string.IsNullOrWhiteSpace(error)
+            ? $"LCU request failed: {(int)response.StatusCode} {response.ReasonPhrase}"
+            : error);
     }
 
     private Task<HttpResponseMessage> SendJsonAsync<T>(HttpMethod method, string endpoint, T body, CancellationToken cancellationToken)

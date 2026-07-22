@@ -7,6 +7,7 @@ Pickwise is a local Windows desktop companion for League of Legends. It connects
 - Detects the local League Client.
 - Shows the current summoner.
 - Creates Normal Draft 5v5, ARAM, or ARAM Mayhem lobbies from explicit player clicks.
+- Starts or cancels matchmaking only from explicit player clicks.
 - Shows Ready Check state.
 - Lets the player click Accept or Decline.
 - Shows Champion Select state.
@@ -15,7 +16,7 @@ Pickwise is a local Windows desktop companion for League of Legends. It connects
 - Stays available from the system tray where supported; closing the window hides it, tray Exit quits it.
 - Writes local diagnostic and crash logs.
 
-Pickwise does not auto-accept, auto-pick, auto-ban, run an overlay, store Riot credentials, or use a backend.
+Pickwise does not auto-accept, auto-pick, auto-ban, automatically start matchmaking, run an overlay, store Riot credentials, or use a backend.
 
 ## Requirements
 
@@ -53,11 +54,13 @@ dotnet run --project tests\Pickwise.Tests\Pickwise.Tests.csproj --no-build
 1. Start Pickwise before or after opening League Client.
 2. Confirm Pickwise shows the current summoner after League Client is logged in.
 3. Create a lobby from Mode Selection.
-4. Queue manually in League Client.
-5. Use Pickwise to Accept or Decline when ready check appears.
-6. In champion select, filter by role, search a champion, and click Pick or Ban.
-7. Disconnect internet and restart Pickwise to confirm missing champion icons show placeholders without blocking the app.
-8. Close the Pickwise window and confirm it stays in the tray; use tray `Show Pickwise` and `Exit`.
+4. Click `Find Match` and confirm League Client starts queue.
+5. Click `Cancel Search` and confirm League Client stops queue.
+6. Click `Find Match` without a lobby and confirm Pickwise shows the LCU error without crashing.
+7. Use Pickwise to Accept or Decline when ready check appears.
+8. In champion select, filter by role, search a champion, and click Pick or Ban.
+9. Disconnect internet and restart Pickwise to confirm missing champion icons show placeholders without blocking the app.
+10. Close the Pickwise window and confirm it stays in the tray; use tray `Show Pickwise` and `Exit`.
 
 ## Publish test build
 

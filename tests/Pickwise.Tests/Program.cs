@@ -79,6 +79,8 @@ sealed class SlowLcuClient : ILcuClient
     public Task AcceptReadyCheckAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public Task DeclineReadyCheckAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public Task CreateLobbyAsync(int queueId, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task StartMatchmakingAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task CancelMatchmakingAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public Task PickChampionAsync(int championId, CancellationToken cancellationToken) => Task.CompletedTask;
     public Task BanChampionAsync(int championId, CancellationToken cancellationToken) => Task.CompletedTask;
 }

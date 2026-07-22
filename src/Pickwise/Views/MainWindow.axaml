@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Pickwise.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="560"
+        x:Class="Pickwise.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="520"
+        Height="640"
+        Title="Pickwise">
+
+    <ScrollViewer>
+        <StackPanel Margin="28" Spacing="18">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Pickwise" FontSize="28" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Status}" Foreground="#666" />
+            </StackPanel>
+
+            <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Current Summoner" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Summoner}" />
+                </StackPanel>
+            </Border>
+
+            <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Ready Check" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding ReadyCheck}" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Content="Accept" Command="{Binding AcceptCommand}" />
+                        <Button Content="Decline" Command="{Binding DeclineCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Champion Select" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding ChampionSelect}" />
+                    <TextBox Watermark="Champion ID" Text="{Binding ChampionId}" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Content="Pick" Command="{Binding PickCommand}" />
+                        <Button Content="Ban" Command="{Binding BanCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="{Binding LastCommandResult}" />
+            <TextBlock Text="{Binding LogPath}" FontSize="12" Foreground="#666" TextWrapping="Wrap" />
+        </StackPanel>
+    </ScrollViewer>
+</Window>

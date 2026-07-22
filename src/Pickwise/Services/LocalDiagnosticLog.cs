@@ -10,7 +10,7 @@ public sealed class LocalDiagnosticLog
     public string CrashPath => System.IO.Path.Combine(_directory, "crash.log");
 
     public void Info(string message) => Write("INFO", message);
-    public void Error(string message, Exception exception) => Write("ERROR", $"{message}: {exception.GetType().Name}: {exception.Message}");
+    public void Error(string message, Exception exception) => Write("ERROR", $"{message}{Environment.NewLine}{exception}");
     public void Crash(string message, Exception exception) => Write(CrashPath, "CRASH", $"{message}{Environment.NewLine}{exception}");
 
     private void Write(string level, string message) => Write(Path, level, message);

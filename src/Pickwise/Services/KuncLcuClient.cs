@@ -1,25 +1,30 @@
 using System.Net.Http.Json;
 using System.Diagnostics;
-using Kunc.RiotGames.Lol.LeagueClientUpdate;
+using System.Net.Http.Headers;
+using System.Text;
 using Pickwise.Models;
 
 namespace Pickwise.Services;
 
 public sealed class KuncLcuClient : ILcuClient, IDisposable
 {
-    private readonly Lazy<ILolLeagueClientUpdate> _lcu = new(() => LolLeagueClientUpdate.Create());
     private readonly LocalDiagnosticLog _log;
+    private readonly HttpClient _http;
 
     public KuncLcuClient(LocalDiagnosticLog log)
     {
         _log = log;
+        _http = new HttpClient(new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
     }
 
     public async Task<LcuSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
     {
         try
         {
-            if (!Process.GetProcessesByName("LeagueClientUx").Any())
+            if (TryGetConnection() is null)
             {
                 return new(AppPhase.WaitingForLeagueClient, null, null, null, "Waiting for League Client");
             }
@@ -57,19 +62,22 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
 
     public async Task AcceptReadyCheckAsync(CancellationToken cancellationToken)
     {
-        await _lcu.Value.PostAsJsonAsync("lol-matchmaking/v1/ready-check/accept", new { }, cancellationToken);
+        using var response = await SendJsonAsync(HttpMethod.Post, "lol-matchmaking/v1/ready-check/accept", new { }, cancellationToken);
+        response.EnsureSuccessStatusCode();
         _log.Info("Ready Check accepted by Player Command");
     }
 
     public async Task DeclineReadyCheckAsync(CancellationToken cancellationToken)
     {
-        await _lcu.Value.PostAsJsonAsync("lol-matchmaking/v1/ready-check/decline", new { }, cancellationToken);
+        using var response = await SendJsonAsync(HttpMethod.Post, "lol-matchmaking/v1/ready-check/decline", new { }, cancellationToken);
+        response.EnsureSuccessStatusCode();
         _log.Info("Ready Check declined by Player Command");
     }
 
     public async Task CreateLobbyAsync(int queueId, CancellationToken cancellationToken)
     {
-        await _lcu.Value.PostAsJsonAsync("lol-lobby/v2/lobby", new { queueId }, cancellationToken);
+        using var response = await SendJsonAsync(HttpMethod.Post, "lol-lobby/v2/lobby", new { queueId }, cancellationToken);
+        response.EnsureSuccessStatusCode();
         _log.Info($"Lobby created by Player Command: queueId={queueId}");
     }
 
@@ -79,19 +87,19 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
     public Task BanChampionAsync(int championId, CancellationToken cancellationToken) =>
         PatchCurrentChampionActionAsync("ban", championId, cancellationToken);
 
-    public void Dispose()
-    {
-        if (_lcu.IsValueCreated)
-        {
-            _lcu.Value.Dispose();
-        }
-    }
+    public void Dispose() => _http.Dispose();
 
     private async Task<T?> GetOrNull<T>(string endpoint, CancellationToken cancellationToken)
     {
         try
         {
-            return await _lcu.Value.GetFromJsonAsync<T>(endpoint, cancellationToken);
+            using var response = await SendAsync(HttpMethod.Get, endpoint, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return default;
+            }
+
+            return await response.Content.ReadFromJsonAsync<T>(cancellationToken);
         }
         catch (HttpRequestException)
         {
@@ -105,15 +113,63 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
 
     private async Task PatchCurrentChampionActionAsync(string type, int championId, CancellationToken cancellationToken)
     {
-        var session = await _lcu.Value.GetFromJsonAsync<ChampionSelectSession>("lol-champ-select/v1/session", cancellationToken);
+        var session = await GetOrNull<ChampionSelectSession>("lol-champ-select/v1/session", cancellationToken);
         var action = session?.CurrentAction(type) ?? throw new InvalidOperationException($"No active {type} action.");
-        var request = new HttpRequestMessage(HttpMethod.Patch, $"lol-champ-select/v1/session/actions/{action.Id}")
-        {
-            Content = JsonContent.Create(new { championId, completed = true })
-        };
 
-        using var response = await _lcu.Value.SendAsync(request, cancellationToken);
+        using var response = await SendJsonAsync(HttpMethod.Patch, $"lol-champ-select/v1/session/actions/{action.Id}", new { championId, completed = true }, cancellationToken);
         response.EnsureSuccessStatusCode();
         _log.Info($"Champion {type} submitted by Player Command");
+    }
+
+    private Task<HttpResponseMessage> SendJsonAsync<T>(HttpMethod method, string endpoint, T body, CancellationToken cancellationToken)
+    {
+        var request = CreateRequest(method, endpoint);
+        request.Content = JsonContent.Create(body);
+        return _http.SendAsync(request, cancellationToken);
+    }
+
+    private Task<HttpResponseMessage> SendAsync(HttpMethod method, string endpoint, CancellationToken cancellationToken) =>
+        _http.SendAsync(CreateRequest(method, endpoint), cancellationToken);
+
+    private HttpRequestMessage CreateRequest(HttpMethod method, string endpoint)
+    {
+        var connection = TryGetConnection() ?? throw new InvalidOperationException("League Client lockfile is not available.");
+        var request = new HttpRequestMessage(method, new Uri(connection.BaseUri, endpoint));
+        request.Headers.Authorization = connection.Authorization;
+        return request;
+    }
+
+    private static LcuConnection? TryGetConnection()
+    {
+        var process = Process.GetProcessesByName("LeagueClientUx")
+            .FirstOrDefault(process => !string.IsNullOrWhiteSpace(process.MainModule?.FileName));
+        var directory = process is null ? null : Path.GetDirectoryName(process.MainModule?.FileName);
+        var lockfilePath = directory is null ? null : Path.Combine(directory, "lockfile");
+
+        return lockfilePath is not null && File.Exists(lockfilePath)
+            ? LcuConnection.TryParse(ReadShared(lockfilePath))
+            : null;
+    }
+
+    private static string ReadShared(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+}
+
+public sealed record LcuConnection(Uri BaseUri, AuthenticationHeaderValue Authorization)
+{
+    public static LcuConnection? TryParse(string lockfile)
+    {
+        var parts = lockfile.Trim().Split(':');
+        if (parts.Length != 5 || !int.TryParse(parts[2], out var port) || string.IsNullOrWhiteSpace(parts[3]))
+        {
+            return null;
+        }
+
+        var token = Convert.ToBase64String(Encoding.ASCII.GetBytes($"riot:{parts[3]}"));
+        return new(new Uri($"https://127.0.0.1:{port}/"), new AuthenticationHeaderValue("Basic", token));
     }
 }

@@ -18,6 +18,7 @@ Assert(session.CurrentAction("ban")?.Id == 2, "finds active local ban action");
 Assert(session.CurrentAction("pick") is null, "ignores inactive pick action");
 AssertChampionCatalogSearchWorks();
 AssertGameModeCatalogWorks();
+AssertLcuLockfileParserWorks();
 AssertConstructorDoesNotBlockOnSlowLcu();
 Console.WriteLine("Pickwise self-checks passed.");
 
@@ -50,6 +51,15 @@ static void AssertGameModeCatalogWorks()
     var catalog = new GameModeCatalog();
     Assert(catalog.All.Any(mode => mode.Name == "Normal Draft 5v5" && mode.QueueId == 400), "catalog contains Normal Draft 5v5 queue");
     Assert(catalog.All.Any(mode => mode.Name == "ARAM" && mode.QueueId == 450), "catalog contains ARAM queue");
+}
+
+static void AssertLcuLockfileParserWorks()
+{
+    var connection = LcuConnection.TryParse("LeagueClient:13968:55888:secret:https");
+    Assert(connection is not null, "parses valid LCU lockfile");
+    Assert(connection!.BaseUri.ToString() == "https://127.0.0.1:55888/", "uses lockfile port");
+    Assert(connection.Authorization.Scheme == "Basic", "uses basic auth");
+    Assert(LcuConnection.TryParse("bad") is null, "rejects invalid lockfile");
 }
 
 sealed class SlowLcuClient : ILcuClient

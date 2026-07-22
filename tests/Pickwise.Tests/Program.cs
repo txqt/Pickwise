@@ -18,6 +18,7 @@ Assert(session.CurrentAction("ban")?.Id == 2, "finds active local ban action");
 Assert(session.CurrentAction("pick") is null, "ignores inactive pick action");
 AssertChampionCatalogSearchWorks();
 AssertGameModeCatalogWorks();
+AssertChampionRoleFilterWorks();
 AssertLcuLockfileParserWorks();
 AssertConstructorDoesNotBlockOnSlowLcu();
 Console.WriteLine("Pickwise self-checks passed.");
@@ -57,6 +58,19 @@ static void AssertGameModeCatalogWorks()
     Assert(catalog.All.Any(mode => mode.Name == "Normal Draft 5v5" && mode.QueueId == 400), "catalog contains Normal Draft 5v5 queue");
     Assert(catalog.All.Any(mode => mode.Name == "ARAM" && mode.QueueId == 450), "catalog contains ARAM queue");
     Assert(catalog.All.Any(mode => mode.Name == "ARAM Mayhem" && mode.QueueId == 2400), "catalog contains ARAM Mayhem queue");
+}
+
+static void AssertChampionRoleFilterWorks()
+{
+    var viewModel = new MainViewModel(new SlowLcuClient(), new LocalDiagnosticLog());
+    Assert(viewModel.SelectedChampionRole.Name == "All", "role filter defaults to All");
+
+    viewModel.ChampionSearch = "cait";
+    viewModel.SelectChampionRoleCommand.Execute(viewModel.ChampionRoles.Single(role => role.Name == "Marksman"));
+    Assert(viewModel.Champions.Any(champion => champion.Name == "Caitlyn"), "role icon filter includes matching marksmen");
+
+    viewModel.SelectChampionRoleCommand.Execute(viewModel.ChampionRoles.Single(role => role.Name == "Mage"));
+    Assert(!viewModel.Champions.Any(champion => champion.Name == "Caitlyn"), "role icon filter excludes champions outside selected role");
 }
 
 static void AssertLcuLockfileParserWorks()

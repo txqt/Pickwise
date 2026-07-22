@@ -36,9 +36,6 @@ public partial class MainViewModel : ViewModelBase
     private string _championSearch = "";
 
     [ObservableProperty]
-    private string _selectedChampionRole = "All";
-
-    [ObservableProperty]
     private Champion? _selectedChampion;
 
     [ObservableProperty]
@@ -47,16 +44,19 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private IReadOnlyList<ChampionTileViewModel> _champions = [];
 
-    public IReadOnlyList<string> ChampionRoles { get; } =
+    public IReadOnlyList<ChampionRoleOptionViewModel> ChampionRoles { get; } =
     [
-        "All",
-        "Fighter",
-        "Tank",
-        "Mage",
-        "Assassin",
-        "Marksman",
-        "Support"
+        Role("All", "M3,3 L11,3 L11,11 L3,11 Z M13,3 L21,3 L21,11 L13,11 Z M3,13 L11,13 L11,21 L3,21 Z M13,13 L21,13 L21,21 L13,21 Z"),
+        Role("Fighter", "M12,2 L15,9 L22,12 L15,15 L12,22 L9,15 L2,12 L9,9 Z"),
+        Role("Tank", "M12,2 L21,6 L19,17 L12,22 L5,17 L3,6 Z M8,9 L16,9 L16,15 L8,15 Z"),
+        Role("Mage", "M5,18 L18,5 L20,7 L7,20 Z M7,5 L19,17 L17,19 L5,7 Z M11,5 L14,5 L14,8 L11,8 Z M16,10 L19,10 L19,13 L16,13 Z"),
+        Role("Assassin", "M12,2 L16,10 L22,12 L16,14 L12,22 L8,14 L2,12 L8,10 Z M12,7 L10,12 L12,17 L14,12 Z"),
+        Role("Marksman", "M12,2 L15,9 L22,12 L15,15 L12,22 L9,15 L2,12 L9,9 Z M12,7 L12,17 M7,12 L17,12"),
+        Role("Support", "M12,3 L15,9 L21,9 L16,13 L18,20 L12,16 L6,20 L8,13 L3,9 L9,9 Z")
     ];
+
+    [ObservableProperty]
+    private ChampionRoleOptionViewModel _selectedChampionRole = null!;
 
     [ObservableProperty]
     private GameMode? _selectedGameMode;
@@ -93,6 +93,8 @@ public partial class MainViewModel : ViewModelBase
         _allChampionTiles = _championCatalog.All.Select(champion => new ChampionTileViewModel(champion)).ToList();
         _championTilesById = _allChampionTiles.ToDictionary(tile => tile.Champion.ChampionId);
         Champions = _allChampionTiles;
+        SelectedChampionRole = ChampionRoles[0];
+        SelectedChampionRole.IsSelected = true;
         GameModes = _gameModeCatalog.All;
         SelectedGameMode = GameModes.FirstOrDefault();
         _ = Task.Run(() => LoadChampionIconsAsync(_polling.Token));
@@ -104,6 +106,9 @@ public partial class MainViewModel : ViewModelBase
     }
 
     private static LocalDiagnosticLog CreateDefaultLog() => new();
+
+    private static ChampionRoleOptionViewModel Role(string name, string path) =>
+        new(name, path);
 
     partial void OnPhaseChanged(AppPhase value)
     {
@@ -118,14 +123,19 @@ public partial class MainViewModel : ViewModelBase
         RefreshChampions();
     }
 
-    partial void OnSelectedChampionRoleChanged(string value)
+    partial void OnSelectedChampionRoleChanged(ChampionRoleOptionViewModel value)
     {
+        foreach (var role in ChampionRoles)
+        {
+            role.IsSelected = role == value;
+        }
+
         RefreshChampions();
     }
 
     private void RefreshChampions()
     {
-        Champions = _championCatalog.Filter(ChampionSearch, SelectedChampionRole)
+        Champions = _championCatalog.Filter(ChampionSearch, SelectedChampionRole.Name)
             .Select(champion => _championTilesById[champion.ChampionId])
             .ToList();
         if (SelectedChampionTile is not null && !Champions.Contains(SelectedChampionTile))
@@ -177,6 +187,12 @@ public partial class MainViewModel : ViewModelBase
 
     [RelayCommand(CanExecute = nameof(CanUseMatchmaking))]
     private Task CancelMatchmakingAsync() => RunCommandAsync(_lcu.CancelMatchmakingAsync, "Cancelled matchmaking");
+
+    [RelayCommand]
+    private void SelectChampionRole(ChampionRoleOptionViewModel role)
+    {
+        SelectedChampionRole = role;
+    }
 
     [RelayCommand(CanExecute = nameof(CanChampionCommand))]
     private Task PickAsync() => RunChampionCommandAsync(_lcu.PickChampionAsync, "Pick submitted");

@@ -10,6 +10,7 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
 {
     private readonly LocalDiagnosticLog _log;
     private readonly HttpClient _http;
+    private readonly Dictionary<long, SummonerProfile?> _summonerProfiles = [];
 
     public KuncLcuClient(LocalDiagnosticLog log)
     {
@@ -26,28 +27,39 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
         {
             if (TryGetConnection() is null)
             {
-                return new(AppPhase.WaitingForLeagueClient, null, null, null, "Waiting for League Client");
+                return Disconnected();
             }
 
             var summoner = await GetOrNull<CurrentSummoner>("lol-summoner/v1/current-summoner", cancellationToken);
             if (summoner is null)
             {
-                return new(AppPhase.WaitingForLeagueClient, null, null, null, "Waiting for League Client");
+                return Disconnected();
             }
 
             var ready = await GetOrNull<ReadyCheckState>("lol-matchmaking/v1/ready-check", cancellationToken);
+            var lobby = await GetOrNull<LobbyState>("lol-lobby/v2/lobby", cancellationToken);
+            var lobbyMembers = lobby?.Members is { Count: > 0 } members
+                ? members
+                : await GetListOrEmpty<LobbyMember>("lol-lobby/v2/lobby/members", cancellationToken);
+            lobbyMembers = await EnrichLobbyMembersAsync(lobbyMembers, cancellationToken);
             if (ready?.NeedsResponse == true)
             {
-                return new(AppPhase.ReadyCheck, summoner, ready, null, "Match found");
+                return new(AppPhase.ReadyCheck, summoner, ready, null, null, lobby, lobbyMembers, [], [], [], "Match found");
             }
 
             var championSelect = await GetOrNull<ChampionSelectSession>("lol-champ-select/v1/session", cancellationToken);
             if (championSelect is not null)
             {
-                return new(AppPhase.ChampionSelect, summoner, ready, championSelect, "Champion select");
+                var gameflow = await GetOrNull<GameflowSession>("lol-gameflow/v1/session", cancellationToken);
+                var pickable = championSelect.AllowSubsetChampionPicks
+                    ? await GetListOrEmpty("lol-lobby-team-builder/champ-select/v1/subset-champion-list", cancellationToken)
+                    : await GetListOrEmpty("lol-champ-select/v1/pickable-champion-ids", cancellationToken);
+                var disabled = await GetListOrEmpty("lol-champ-select/v1/disabled-champion-ids", cancellationToken);
+                var trades = await GetListOrEmpty<ChampionTradeRequest>("lol-champ-select/v1/session/trades", cancellationToken);
+                return new(AppPhase.ChampionSelect, summoner, ready, championSelect, gameflow, lobby, lobbyMembers, pickable, disabled, trades, "Champion select");
             }
 
-            return new(AppPhase.Connected, summoner, ready, null, "Connected");
+            return new(AppPhase.Connected, summoner, ready, null, null, lobby, lobbyMembers, [], [], [], "Connected");
         }
         catch (OperationCanceledException)
         {
@@ -56,8 +68,51 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
         catch (Exception exception)
         {
             _log.Error("LCU snapshot failed", exception);
-            return new(AppPhase.Error, null, null, null, "Cannot connect to League Client");
+            return new(AppPhase.Error, null, null, null, null, null, [], [], [], [], "Cannot connect to League Client");
         }
+    }
+
+    public Task<SummonerProfile?> GetSummonerProfileAsync(long summonerId, CancellationToken cancellationToken) =>
+        GetOrNull<SummonerProfile>($"lol-summoner/v1/summoners/{summonerId}", cancellationToken);
+
+    public async Task<IReadOnlyList<GameMode>> GetQueuesAsync(CancellationToken cancellationToken)
+    {
+        var queues = await GetListOrEmpty<LcuQueue>("lol-game-queues/v1/queues", cancellationToken);
+        return queues
+            .Where(queue =>
+                queue.IsVisible
+                && queue.IsEnabled
+                && string.Equals(queue.QueueAvailability, "Available", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(queue => queue.GameSelectModeGroup)
+            .ThenBy(queue => queue.Category)
+            .ThenBy(queue => queue.Id)
+            .Select(queue => queue.ToGameMode())
+            .ToList();
+    }
+
+    public async Task<RankedSummary?> GetRankedSummaryAsync(long summonerId, CancellationToken cancellationToken)
+    {
+        var ranked = await GetOrNull<RankedStats>($"lol-ranked-stats/v1/stats/{summonerId}", cancellationToken);
+        var queue = ranked?.Queues?
+            .Where(queue => queue.Tier is not null || queue.Rank is not null)
+            .OrderBy(queue => queue.QueueType == "RANKED_SOLO_5x5" ? 0 : 1)
+            .FirstOrDefault();
+
+        return queue is null
+            ? null
+            : new RankedSummary($"{queue.QueueType}: {queue.Tier} {queue.Rank} - {queue.LeaguePoints ?? 0} LP");
+    }
+
+    public async Task SendFriendRequestAsync(LobbyMember member, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(member.GameName) || string.IsNullOrWhiteSpace(member.TagLine))
+        {
+            throw new InvalidOperationException("Riot ID is required to send a friend request.");
+        }
+
+        using var response = await SendJsonAsync(HttpMethod.Post, "lol-chat/v2/friend-requests", new { gameName = member.GameName, tagLine = member.TagLine }, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        _log.Info($"Friend request sent by Player Command: {member.GameName}#{member.TagLine}");
     }
 
     public async Task AcceptReadyCheckAsync(CancellationToken cancellationToken)
@@ -81,6 +136,79 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
         _log.Info($"Lobby created by Player Command: queueId={queueId}");
     }
 
+    public async Task CreateLobbyAsync(GameMode mode, CancellationToken cancellationToken)
+    {
+        if (!mode.IsCustom)
+        {
+            await CreateLobbyAsync(mode.QueueId, cancellationToken);
+            return;
+        }
+
+        if (mode.GameTypeConfig is null)
+        {
+            throw new InvalidOperationException("Custom lobby metadata is unavailable.");
+        }
+
+        var body = new
+        {
+            queueId = mode.QueueId,
+            customGameLobby = new
+            {
+                lobbyName = "Pickwise Custom",
+                lobbyPassword = "",
+                configuration = new
+                {
+                    mapId = mode.MapId,
+                    gameMode = mode.GameModeCode,
+                    mutators = mode.GameTypeConfig,
+                    gameTypeConfig = mode.GameTypeConfig,
+                    spectatorPolicy = "NotAllowed",
+                    teamSize = Math.Min(5, Math.Max(1, mode.MaxLobbySize)),
+                    maxPlayerCount = (uint)Math.Max(1, mode.MaxLobbySize),
+                    tournamentGameMode = "",
+                    tournamentPassbackUrl = "",
+                    tournamentPassbackDataPacket = "",
+                    gameServerRegion = "",
+                    spectatorDelayEnabled = false,
+                    hidePublicly = false,
+                    aramMapMutator = ""
+                }
+            }
+        };
+
+        using var response = await SendJsonAsync(HttpMethod.Post, "lol-lobby/v2/lobby", body, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        _log.Info($"Custom lobby created by Player Command: queueId={mode.QueueId}");
+    }
+
+    public async Task UpdatePositionPreferencesAsync(string first, string second, CancellationToken cancellationToken)
+    {
+        using var response = await SendJsonAsync(
+            HttpMethod.Put,
+            "lol-lobby/v2/lobby/members/localMember/position-preferences",
+            new { firstPreference = first, secondPreference = second },
+            cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        _log.Info($"Lane preferences updated by Player Command: {first}/{second}");
+    }
+
+    public async Task LeaveLobbyAsync(CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(HttpMethod.Delete, "lol-lobby/v2/lobby", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        _log.Info("Lobby left by Player Command");
+    }
+
+    public Task<string?> GetQuickplayPerksAsync(int championId, string position, CancellationToken cancellationToken) =>
+        GetOrNull<string>($"lol-perks/v1/quick-play-selections/champion/{championId}/position/{Uri.EscapeDataString(position)}", cancellationToken);
+
+    public async Task UpdateQuickplaySlotsAsync(IReadOnlyList<LobbyPlayerSlot> slots, CancellationToken cancellationToken)
+    {
+        using var response = await SendJsonAsync(HttpMethod.Put, "lol-lobby/v1/lobby/members/localMember/player-slots", slots, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        _log.Info("Quickplay slots updated by Player Command");
+    }
+
     public async Task StartMatchmakingAsync(CancellationToken cancellationToken)
     {
         using var response = await SendJsonAsync(HttpMethod.Post, "lol-lobby/v2/lobby/matchmaking/search", new { }, cancellationToken);
@@ -95,13 +223,45 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
         _log.Info("Matchmaking cancelled by Player Command");
     }
 
+    public Task DeclareChampionAsync(int championId, CancellationToken cancellationToken) =>
+        PatchChampionActionAsync("pick", championId, complete: false, requireInProgress: false, cancellationToken);
+
     public Task PickChampionAsync(int championId, CancellationToken cancellationToken) =>
-        PatchCurrentChampionActionAsync("pick", championId, cancellationToken);
+        PatchChampionActionAsync("pick", championId, complete: true, requireInProgress: true, cancellationToken);
 
     public Task BanChampionAsync(int championId, CancellationToken cancellationToken) =>
-        PatchCurrentChampionActionAsync("ban", championId, cancellationToken);
+        PatchChampionActionAsync("ban", championId, complete: true, requireInProgress: true, cancellationToken);
+
+    public async Task SwapBenchChampionAsync(int championId, CancellationToken cancellationToken)
+    {
+        using var response = await SendJsonAsync(HttpMethod.Post, $"lol-lobby-team-builder/champ-select/v1/session/bench/swap/{championId}", new { }, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            using var fallback = await SendJsonAsync(HttpMethod.Post, $"lol-champ-select/v1/session/bench/swap/{championId}", new { }, cancellationToken);
+            await EnsureSuccessAsync(fallback, cancellationToken);
+        }
+
+        _log.Info($"ARAM bench champion swapped by Player Command: championId={championId}");
+    }
+
+    public async Task AcceptTradeAsync(int tradeId, CancellationToken cancellationToken)
+    {
+        using var response = await SendJsonAsync(HttpMethod.Post, $"lol-champ-select/v1/session/trades/{tradeId}/accept", new { }, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        _log.Info($"Champion trade accepted by Player Command: tradeId={tradeId}");
+    }
+
+    public async Task DeclineTradeAsync(int tradeId, CancellationToken cancellationToken)
+    {
+        using var response = await SendJsonAsync(HttpMethod.Post, $"lol-champ-select/v1/session/trades/{tradeId}/decline", new { }, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        _log.Info($"Champion trade declined by Player Command: tradeId={tradeId}");
+    }
 
     public void Dispose() => _http.Dispose();
+
+    private static LcuSnapshot Disconnected() =>
+        new(AppPhase.WaitingForLeagueClient, null, null, null, null, null, [], [], [], [], "Waiting for League Client");
 
     private async Task<T?> GetOrNull<T>(string endpoint, CancellationToken cancellationToken)
     {
@@ -125,14 +285,58 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
         }
     }
 
-    private async Task PatchCurrentChampionActionAsync(string type, int championId, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<int>> GetListOrEmpty(string endpoint, CancellationToken cancellationToken) =>
+        await GetOrNull<List<int>>(endpoint, cancellationToken) ?? [];
+
+    private async Task<IReadOnlyList<T>> GetListOrEmpty<T>(string endpoint, CancellationToken cancellationToken) =>
+        await GetOrNull<List<T>>(endpoint, cancellationToken) ?? [];
+
+    private async Task<IReadOnlyList<LobbyMember>> EnrichLobbyMembersAsync(IReadOnlyList<LobbyMember> members, CancellationToken cancellationToken)
+    {
+        if (members.Count == 0)
+        {
+            return members;
+        }
+
+        var enriched = new List<LobbyMember>(members.Count);
+        foreach (var member in members)
+        {
+            if (!member.NeedsProfileEnrichment || member.SummonerId is not { } summonerId)
+            {
+                enriched.Add(member);
+                continue;
+            }
+
+            if (!_summonerProfiles.TryGetValue(summonerId, out var profile))
+            {
+                profile = await GetSummonerProfileAsync(summonerId, cancellationToken);
+                _summonerProfiles[summonerId] = profile;
+            }
+
+            enriched.Add(profile is null ? member : member.WithProfile(profile));
+        }
+
+        return enriched;
+    }
+
+    private async Task PatchChampionActionAsync(string type, int championId, bool complete, bool requireInProgress, CancellationToken cancellationToken)
     {
         var session = await GetOrNull<ChampionSelectSession>("lol-champ-select/v1/session", cancellationToken);
-        var action = session?.CurrentAction(type) ?? throw new InvalidOperationException($"No active {type} action.");
+        var action = requireInProgress
+            ? session?.CurrentAction(type)
+            : session?.OpenAction(type);
+        if (action is null)
+        {
+            throw new InvalidOperationException($"No active {type} action.");
+        }
 
-        using var response = await SendJsonAsync(HttpMethod.Patch, $"lol-champ-select/v1/session/actions/{action.Id}", new { championId, completed = true }, cancellationToken);
+        using var response = complete
+            ? await SendJsonAsync(HttpMethod.Patch, $"lol-champ-select/v1/session/actions/{action.Id}", new { championId, completed = true }, cancellationToken)
+            : await SendJsonAsync(HttpMethod.Patch, $"lol-champ-select/v1/session/actions/{action.Id}", new { championId }, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
-        _log.Info($"Champion {type} submitted by Player Command");
+        _log.Info(complete
+            ? $"Champion {type} submitted by Player Command"
+            : $"Champion {type} declared by Player Command");
     }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -199,4 +403,99 @@ public sealed record LcuConnection(Uri BaseUri, AuthenticationHeaderValue Author
         var token = Convert.ToBase64String(Encoding.ASCII.GetBytes($"riot:{parts[3]}"));
         return new(new Uri($"https://127.0.0.1:{port}/"), new AuthenticationHeaderValue("Basic", token));
     }
+}
+
+public sealed record RankedStats(
+    [property: System.Text.Json.Serialization.JsonPropertyName("queues")] List<RankedQueue>? Queues);
+
+public sealed record RankedQueue(
+    [property: System.Text.Json.Serialization.JsonPropertyName("queueType")] string? QueueType,
+    [property: System.Text.Json.Serialization.JsonPropertyName("tier")] string? Tier,
+    [property: System.Text.Json.Serialization.JsonPropertyName("rank")] string? Rank,
+    [property: System.Text.Json.Serialization.JsonPropertyName("leaguePoints")] int? LeaguePoints);
+
+public sealed record LcuQueue(
+    [property: System.Text.Json.Serialization.JsonPropertyName("id")] int Id,
+    [property: System.Text.Json.Serialization.JsonPropertyName("name")] string? Name,
+    [property: System.Text.Json.Serialization.JsonPropertyName("shortName")] string? ShortName,
+    [property: System.Text.Json.Serialization.JsonPropertyName("category")] string? Category,
+    [property: System.Text.Json.Serialization.JsonPropertyName("gameSelectModeGroup")] string? GameSelectModeGroup,
+    [property: System.Text.Json.Serialization.JsonPropertyName("gameMode")] string? GameMode,
+    [property: System.Text.Json.Serialization.JsonPropertyName("type")] string? Type,
+    [property: System.Text.Json.Serialization.JsonPropertyName("mapId")] int MapId,
+    [property: System.Text.Json.Serialization.JsonPropertyName("pickMode")] string? PickMode,
+    [property: System.Text.Json.Serialization.JsonPropertyName("isCustom")] bool IsCustom,
+    [property: System.Text.Json.Serialization.JsonPropertyName("isEnabled")] bool IsEnabled,
+    [property: System.Text.Json.Serialization.JsonPropertyName("isVisible")] bool IsVisible,
+    [property: System.Text.Json.Serialization.JsonPropertyName("queueAvailability")] string? QueueAvailability,
+    [property: System.Text.Json.Serialization.JsonPropertyName("showPositionSelector")] bool ShowPositionSelector,
+    [property: System.Text.Json.Serialization.JsonPropertyName("showQuickPlaySlotSelection")] bool ShowQuickPlaySlotSelection,
+    [property: System.Text.Json.Serialization.JsonPropertyName("maximumParticipantListSize")] int MaximumParticipantListSize,
+    [property: System.Text.Json.Serialization.JsonPropertyName("gameTypeConfig")] LcuQueueGameTypeConfig? GameTypeConfig)
+{
+    public GameMode ToGameMode() =>
+        new(
+            string.IsNullOrWhiteSpace(Name) ? $"Queue {Id}" : Name!,
+            Id,
+            Category ?? "",
+            GameSelectModeGroup ?? "",
+            GameMode ?? "",
+            Type ?? "",
+            MapId,
+            PickMode ?? "",
+            IsCustom,
+            ShowPositionSelector,
+            ShowQuickPlaySlotSelection,
+            MaximumParticipantListSize,
+            GameTypeConfig?.ToModel(PickMode ?? ""));
+}
+
+public sealed record LcuQueueGameTypeConfig(
+    [property: System.Text.Json.Serialization.JsonPropertyName("id")] long Id,
+    [property: System.Text.Json.Serialization.JsonPropertyName("name")] string? Name,
+    [property: System.Text.Json.Serialization.JsonPropertyName("maxAllowableBans")] int MaxAllowableBans,
+    [property: System.Text.Json.Serialization.JsonPropertyName("allowTrades")] bool AllowTrades,
+    [property: System.Text.Json.Serialization.JsonPropertyName("exclusivePick")] bool ExclusivePick,
+    [property: System.Text.Json.Serialization.JsonPropertyName("duplicatePick")] bool DuplicatePick,
+    [property: System.Text.Json.Serialization.JsonPropertyName("teamChampionPool")] bool TeamChampionPool,
+    [property: System.Text.Json.Serialization.JsonPropertyName("crossTeamChampionPool")] bool CrossTeamChampionPool,
+    [property: System.Text.Json.Serialization.JsonPropertyName("advancedLearningQuests")] bool AdvancedLearningQuests,
+    [property: System.Text.Json.Serialization.JsonPropertyName("battleBoost")] bool BattleBoost,
+    [property: System.Text.Json.Serialization.JsonPropertyName("deathMatch")] bool DeathMatch,
+    [property: System.Text.Json.Serialization.JsonPropertyName("doNotRemove")] bool DoNotRemove,
+    [property: System.Text.Json.Serialization.JsonPropertyName("learningQuests")] bool LearningQuests,
+    [property: System.Text.Json.Serialization.JsonPropertyName("onboardCoopBeginner")] bool OnboardCoopBeginner,
+    [property: System.Text.Json.Serialization.JsonPropertyName("reroll")] bool Reroll,
+    [property: System.Text.Json.Serialization.JsonPropertyName("mainPickTimerDuration")] int MainPickTimerDuration,
+    [property: System.Text.Json.Serialization.JsonPropertyName("postPickTimerDuration")] int PostPickTimerDuration,
+    [property: System.Text.Json.Serialization.JsonPropertyName("banTimerDuration")] int BanTimerDuration,
+    [property: System.Text.Json.Serialization.JsonPropertyName("pickMode")] string? PickMode,
+    [property: System.Text.Json.Serialization.JsonPropertyName("banMode")] string? BanMode,
+    [property: System.Text.Json.Serialization.JsonPropertyName("gameModeOverride")] string? GameModeOverride,
+    [property: System.Text.Json.Serialization.JsonPropertyName("numPlayersPerTeamOverride")] int? NumPlayersPerTeamOverride)
+{
+    public LcuGameTypeConfig ToModel(string queuePickMode) =>
+        new(
+            Id,
+            Name ?? "",
+            MaxAllowableBans,
+            AllowTrades,
+            ExclusivePick,
+            DuplicatePick,
+            TeamChampionPool,
+            CrossTeamChampionPool,
+            AdvancedLearningQuests,
+            BattleBoost,
+            DeathMatch,
+            DoNotRemove,
+            LearningQuests,
+            OnboardCoopBeginner,
+            Reroll,
+            MainPickTimerDuration,
+            PostPickTimerDuration,
+            BanTimerDuration,
+            string.IsNullOrWhiteSpace(PickMode) ? queuePickMode : PickMode!,
+            BanMode ?? "",
+            GameModeOverride,
+            NumPlayersPerTeamOverride);
 }

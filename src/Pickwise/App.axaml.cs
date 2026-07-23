@@ -6,7 +6,6 @@ using Pickwise.Models;
 using Pickwise.Services;
 using Pickwise.ViewModels;
 using Pickwise.Views;
-using System.ComponentModel;
 
 namespace Pickwise;
 
@@ -16,7 +15,6 @@ public partial class App : Application
     private const string MatchFoundTitle = "Pickwise - Match Found";
     private TrayIcon? _trayIcon;
     private MainWindow? _mainWindow;
-    private bool _exitRequested;
     private AppPhase _lastPhase = AppPhase.WaitingForLeagueClient;
 
     public override void Initialize()
@@ -37,6 +35,7 @@ public partial class App : Application
             desktop.MainWindow = _mainWindow;
             SetupTray(desktop, log);
             SetupReadyCheckAlert(viewModel);
+            desktop.Exit += (_, _) => _trayIcon?.Dispose();
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -57,7 +56,6 @@ public partial class App : Application
             var exit = new NativeMenuItem("Exit");
             exit.Click += (_, _) =>
             {
-                _exitRequested = true;
                 _trayIcon?.Dispose();
                 desktop.Shutdown();
             };
@@ -77,24 +75,11 @@ public partial class App : Application
                 }
             };
             _trayIcon.Clicked += (_, _) => ShowMainWindow();
-
-            _mainWindow.Closing += HideToTrayOnClose;
         }
         catch (Exception exception)
         {
             log.Error("Tray setup failed", exception);
         }
-    }
-
-    private void HideToTrayOnClose(object? sender, CancelEventArgs e)
-    {
-        if (_exitRequested || _mainWindow is null)
-        {
-            return;
-        }
-
-        e.Cancel = true;
-        _mainWindow.Hide();
     }
 
     private void SetupReadyCheckAlert(MainViewModel viewModel)

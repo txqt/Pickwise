@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Pickwise.Models;
 using Pickwise.Services;
@@ -13,9 +14,25 @@ public partial class MainViewModel : ViewModelBase
     private readonly ChampionCatalog _championCatalog;
     private readonly GameModeCatalog _gameModeCatalog;
     private readonly ChampionIconCache _championIconCache;
+    private readonly GameModeIconCache _gameModeIconCache;
+    private readonly SummonerIconCache _summonerIconCache;
+    private readonly ChampionPreferenceStore _preferenceStore;
+    private readonly ChampionPreferences _preferences;
     private readonly IReadOnlyList<ChampionTileViewModel> _allChampionTiles;
     private readonly IReadOnlyDictionary<int, ChampionTileViewModel> _championTilesById;
     private readonly CancellationTokenSource _polling = new();
+    private IReadOnlyList<GameMode> _allGameModes = [];
+    private Dictionary<string, LobbyMemberViewModel> _lobbyMembersByKey = [];
+    private ChampionSelectSession? _currentChampionSelectSession;
+    private CurrentSummoner? _currentSummoner;
+    private LobbyState? _currentLobbyState;
+    private string _profileBackScreen = "Home";
+    private IReadOnlySet<int> _pickableChampionIds = new HashSet<int>();
+    private IReadOnlySet<int> _disabledChampionIds = new HashSet<int>();
+    private IReadOnlySet<int> _allyHoveredChampionIds = new HashSet<int>();
+    private bool _suppressDeclare;
+    private bool _hydratingPositions;
+    private bool _positionEditDirty;
 
     [ObservableProperty]
     private AppPhase _phase = AppPhase.WaitingForLeagueClient;
@@ -44,6 +61,27 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private IReadOnlyList<ChampionTileViewModel> _champions = [];
 
+    [ObservableProperty]
+    private IReadOnlyList<ChampionTileViewModel> _aramAvailableChampions = [];
+
+    [ObservableProperty]
+    private IReadOnlyList<ChampionTileViewModel> _aramBenchChampions = [];
+
+    [ObservableProperty]
+    private IReadOnlyList<ChampionTileViewModel> _quickBanChampions = [];
+
+    [ObservableProperty]
+    private IReadOnlyList<ChampionTradeRequest> _tradeRequests = [];
+
+    [ObservableProperty]
+    private string _currentLobby = "No lobby";
+
+    [ObservableProperty]
+    private IReadOnlyList<LobbyMemberViewModel> _lobbyMembers = [];
+
+    [ObservableProperty]
+    private ProfilePanelViewModel? _selectedProfile;
+
     public IReadOnlyList<ChampionRoleOptionViewModel> ChampionRoles { get; } =
     [
         Role("All", "M3,3 L11,3 L11,11 L3,11 Z M13,3 L21,3 L21,11 L13,11 Z M3,13 L11,13 L11,21 L3,21 Z M13,13 L21,13 L21,21 L13,21 Z"),
@@ -65,38 +103,145 @@ public partial class MainViewModel : ViewModelBase
     private IReadOnlyList<GameMode> _gameModes = [];
 
     [ObservableProperty]
+    private IReadOnlyList<string> _modeGroups = [];
+
+    [ObservableProperty]
     private string _lastCommandResult = "";
+
+    [ObservableProperty]
+    private string _screen = "Home";
+
+    [ObservableProperty]
+    private string _selectedModeGroup = "Summoner's Rift";
+
+    [ObservableProperty]
+    private Bitmap? _summonersRiftIcon;
+
+    [ObservableProperty]
+    private Bitmap? _aramIcon;
+
+    [ObservableProperty]
+    private bool _isAramChampionSelect;
+
+    [ObservableProperty]
+    private bool _isRandomCardChampionSelect;
+
+    [ObservableProperty]
+    private string _randomCardChampionSelectLabel = "Random Pick";
+
+    [ObservableProperty]
+    private string _currentChampion = "No champion selected";
+
+    [ObservableProperty]
+    private string _championSelectTimeline = "Waiting";
+
+    [ObservableProperty]
+    private string _banWarning = "";
+
+    [ObservableProperty]
+    private string _selectedPrimaryPosition = "TOP";
+
+    [ObservableProperty]
+    private string _selectedSecondaryPosition = "JUNGLE";
+
+    [ObservableProperty]
+    private string _lobbySetupStatus = "";
+
+    [ObservableProperty]
+    private IReadOnlyList<QuickplaySlotViewModel> _quickplaySlots = [];
+
+    [ObservableProperty]
+    private QuickplaySlotViewModel? _activeQuickplaySlot;
+
+    [ObservableProperty]
+    private string _quickplaySearch = "";
+
+    [ObservableProperty]
+    private IReadOnlyList<ChampionTileViewModel> _quickplayChampions = [];
+
+    public IReadOnlyList<string> PositionOptions { get; } = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"];
+    public IReadOnlyList<QuickplayPositionOptionViewModel> QuickplayPositionOptions { get; } =
+        new[] { "TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY" }.Select(position => new QuickplayPositionOptionViewModel(position)).ToList();
+    public IReadOnlyList<ChampionTileViewModel> QuickplayChampionOptions => _allChampionTiles;
 
     public string LogPath => _log.Path;
     public string ChampionIconCachePath => ChampionIconCache.CacheDirectory;
     public string RiotDisclaimer => "Pickwise is not endorsed by Riot Games and does not reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games and all associated properties are trademarks or registered trademarks of Riot Games, Inc.";
     public bool CanRespondReadyCheck => Phase == AppPhase.ReadyCheck;
-    public bool CanChampionCommand => Phase == AppPhase.ChampionSelect && SelectedChampion is not null;
+    public bool CanChampionCommand => Phase == AppPhase.ChampionSelect && !IsRandomCardChampionSelect && SelectedChampion is not null;
+    public bool CanPickAramChampion => Phase == AppPhase.ChampionSelect
+        && IsRandomCardChampionSelect
+        && SelectedChampion is not null
+        && AramAvailableChampions.Any(tile => tile.Champion.ChampionId == SelectedChampion.ChampionId);
+    public bool CanSwapBenchChampion => Phase == AppPhase.ChampionSelect
+        && IsRandomCardChampionSelect
+        && SelectedChampion is not null
+        && AramBenchChampions.Any(tile => tile.Champion.ChampionId == SelectedChampion.ChampionId);
     public bool CanCreateLobby => Phase == AppPhase.Connected && SelectedGameMode is not null;
     public bool CanUseMatchmaking => Phase == AppPhase.Connected;
+    public bool CanLeaveLobby => Phase == AppPhase.Connected && _currentLobbyState is not null;
+    public bool HasSelectedChampion => SelectedChampion is not null;
+    public bool HasBanWarning => !string.IsNullOrWhiteSpace(BanWarning);
+    public bool HasQuickBanChampions => QuickBanChampions.Count > 0;
+    public bool HasTradeRequests => TradeRequests.Count > 0;
+    public bool HasLobbyMembers => LobbyMembers.Count > 0;
+    public bool IsHomeScreen => Screen == "Home";
+    public bool IsReadyScreen => Screen == "Ready";
+    public bool IsChampionSelectScreen => Screen == "ChampionSelect";
+    public bool IsProfileScreen => Screen == "Profile";
+    public bool CanOpenCurrentSummonerProfile => _currentSummoner is not null;
+    public bool IsFiveVFiveChampionSelect => !IsRandomCardChampionSelect;
+    public bool HasSummonersRiftIcon => SummonersRiftIcon is not null;
+    public bool HasNoSummonersRiftIcon => SummonersRiftIcon is null;
+    public bool HasAramIcon => AramIcon is not null;
+    public bool HasNoAramIcon => AramIcon is null;
+    public bool IsPositionSelectorVisible => _currentLobbyState?.GameConfig?.ShowPositionSelector == true;
+    public bool IsQuickplaySetupVisible => _currentLobbyState?.GameConfig?.ShowQuickPlaySlotSelection == true;
+    public bool HasQuickplaySlots => QuickplaySlots.Count > 0;
+    public bool IsQuickplayEditorOpen => ActiveQuickplaySlot is not null;
+    public bool CanSaveQuickplaySlots => IsQuickplaySetupVisible
+        && QuickplaySlots.Count == 2
+        && QuickplaySlots.All(slot => slot.SelectedChampionTile is not null && PositionOptions.Contains(slot.SelectedPosition));
+    public bool CanSavePositions => IsPositionSelectorVisible
+        && PositionOptions.Contains(SelectedPrimaryPosition)
+        && PositionOptions.Contains(SelectedSecondaryPosition)
+        && SelectedPrimaryPosition != SelectedSecondaryPosition;
 
     public MainViewModel() : this(CreateDefaultLog())
     {
     }
 
-    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log) : this(lcu, log, new ChampionCatalog(), new GameModeCatalog(), new ChampionIconCache(log))
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log) : this(lcu, log, new ChampionCatalog(), new GameModeCatalog(), new ChampionIconCache(log), new GameModeIconCache(log), new SummonerIconCache(log), new ChampionPreferenceStore())
     {
     }
 
-    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionCatalog championCatalog, GameModeCatalog gameModeCatalog, ChampionIconCache championIconCache)
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionPreferenceStore preferenceStore) : this(lcu, log, new ChampionCatalog(), new GameModeCatalog(), new ChampionIconCache(log), new GameModeIconCache(log), new SummonerIconCache(log), preferenceStore)
+    {
+    }
+
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionCatalog championCatalog, GameModeCatalog gameModeCatalog, ChampionIconCache championIconCache, GameModeIconCache gameModeIconCache, SummonerIconCache summonerIconCache, ChampionPreferenceStore preferenceStore)
     {
         _lcu = lcu;
         _log = log;
         _championCatalog = championCatalog;
         _gameModeCatalog = gameModeCatalog;
         _championIconCache = championIconCache;
+        _gameModeIconCache = gameModeIconCache;
+        _summonerIconCache = summonerIconCache;
+        _preferenceStore = preferenceStore;
+        _preferences = _preferenceStore.Load();
         _allChampionTiles = _championCatalog.All.Select(champion => new ChampionTileViewModel(champion)).ToList();
         _championTilesById = _allChampionTiles.ToDictionary(tile => tile.Champion.ChampionId);
+        ApplyPreferencesToTiles();
         Champions = _allChampionTiles;
         SelectedChampionRole = ChampionRoles[0];
         SelectedChampionRole.IsSelected = true;
-        GameModes = _gameModeCatalog.All;
+        _allGameModes = _gameModeCatalog.All;
+        RefreshModeGroups();
+        RefreshGameModes();
         SelectedGameMode = GameModes.FirstOrDefault();
+        _ = Task.Run(() => LoadGameModesAsync(_polling.Token));
+        _ = Task.Run(() => LoadGameModeIconsAsync(_polling.Token));
         _ = Task.Run(() => LoadChampionIconsAsync(_polling.Token));
         _ = Task.Run(() => PollAsync(_polling.Token));
     }
@@ -112,15 +257,115 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnPhaseChanged(AppPhase value)
     {
+        if (Screen == "Profile")
+        {
+            return;
+        }
+
+        if (value == AppPhase.ReadyCheck)
+        {
+            Screen = "Ready";
+        }
+        else if (value == AppPhase.ChampionSelect)
+        {
+            Screen = "ChampionSelect";
+        }
+
         OnPropertyChanged(nameof(CanRespondReadyCheck));
         OnPropertyChanged(nameof(CanChampionCommand));
         OnPropertyChanged(nameof(CanCreateLobby));
         OnPropertyChanged(nameof(CanUseMatchmaking));
+        OnPropertyChanged(nameof(CanLeaveLobby));
+    }
+
+    partial void OnScreenChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsHomeScreen));
+        OnPropertyChanged(nameof(IsReadyScreen));
+        OnPropertyChanged(nameof(IsChampionSelectScreen));
+        OnPropertyChanged(nameof(IsProfileScreen));
+    }
+
+    partial void OnSummonersRiftIconChanged(Bitmap? value)
+    {
+        OnPropertyChanged(nameof(HasSummonersRiftIcon));
+        OnPropertyChanged(nameof(HasNoSummonersRiftIcon));
+    }
+
+    partial void OnAramIconChanged(Bitmap? value)
+    {
+        OnPropertyChanged(nameof(HasAramIcon));
+        OnPropertyChanged(nameof(HasNoAramIcon));
+    }
+
+    partial void OnSelectedModeGroupChanged(string value)
+    {
+        RefreshGameModes();
+    }
+
+    partial void OnSelectedPrimaryPositionChanged(string value)
+    {
+        if (!_hydratingPositions)
+        {
+            _positionEditDirty = true;
+        }
+
+        OnPropertyChanged(nameof(CanSavePositions));
+        OnPropertyChanged(nameof(CanLeaveLobby));
+        SavePositionsCommand.NotifyCanExecuteChanged();
+        LeaveLobbyCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSelectedSecondaryPositionChanged(string value)
+    {
+        if (!_hydratingPositions)
+        {
+            _positionEditDirty = true;
+        }
+
+        OnPropertyChanged(nameof(CanSavePositions));
+        SavePositionsCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsAramChampionSelectChanged(bool value)
+    {
+        OnPropertyChanged(nameof(RandomCardChampionSelectLabel));
+    }
+
+    partial void OnIsRandomCardChampionSelectChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsFiveVFiveChampionSelect));
+        OnPropertyChanged(nameof(CanChampionCommand));
+        OnPropertyChanged(nameof(CanPickAramChampion));
+        OnPropertyChanged(nameof(CanSwapBenchChampion));
+        PickCommand.NotifyCanExecuteChanged();
+        BanCommand.NotifyCanExecuteChanged();
+        ToggleFavoriteCommand.NotifyCanExecuteChanged();
+        ToggleQuickBanCommand.NotifyCanExecuteChanged();
+        PickAramChampionCommand.NotifyCanExecuteChanged();
+        SwapBenchChampionCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnChampionSearchChanged(string value)
     {
         RefreshChampions();
+    }
+
+    partial void OnQuickplaySearchChanged(string value)
+    {
+        RefreshQuickplayChampions();
+    }
+
+    partial void OnActiveQuickplaySlotChanged(QuickplaySlotViewModel? value)
+    {
+        foreach (var slot in QuickplaySlots)
+        {
+            slot.IsActive = slot == value;
+        }
+
+        OnPropertyChanged(nameof(IsQuickplayEditorOpen));
+        RefreshQuickplayPositionOptions();
+        RefreshQuickplayChampions();
     }
 
     partial void OnSelectedChampionRoleChanged(ChampionRoleOptionViewModel value)
@@ -135,7 +380,9 @@ public partial class MainViewModel : ViewModelBase
 
     private void RefreshChampions()
     {
-        Champions = _championCatalog.Filter(ChampionSearch, SelectedChampionRole.Name)
+        Champions = FilterForCurrentChampionSelect(_championCatalog.Filter(ChampionSearch, SelectedChampionRole.Name))
+            .OrderByDescending(champion => _preferences.Favorites.Contains(champion.ChampionId))
+            .ThenBy(champion => champion.Name)
             .Select(champion => _championTilesById[champion.ChampionId])
             .ToList();
         if (SelectedChampionTile is not null && !Champions.Contains(SelectedChampionTile))
@@ -147,13 +394,56 @@ public partial class MainViewModel : ViewModelBase
     partial void OnSelectedChampionTileChanged(ChampionTileViewModel? value)
     {
         SelectedChampion = value?.Champion;
+        if (value is not null
+            && Phase == AppPhase.ChampionSelect
+            && !IsRandomCardChampionSelect
+            && !_suppressDeclare
+            && _currentChampionSelectSession?.OpenAction("pick") is not null)
+        {
+            _ = DeclareChampionAsync(value.Champion.ChampionId);
+        }
     }
 
     partial void OnSelectedChampionChanged(Champion? value)
     {
         OnPropertyChanged(nameof(CanChampionCommand));
+        OnPropertyChanged(nameof(CanPickAramChampion));
+        OnPropertyChanged(nameof(CanSwapBenchChampion));
+        OnPropertyChanged(nameof(HasSelectedChampion));
+        RefreshBanWarning();
         PickCommand.NotifyCanExecuteChanged();
         BanCommand.NotifyCanExecuteChanged();
+        ToggleFavoriteCommand.NotifyCanExecuteChanged();
+        ToggleQuickBanCommand.NotifyCanExecuteChanged();
+        PickAramChampionCommand.NotifyCanExecuteChanged();
+        SwapBenchChampionCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnBanWarningChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasBanWarning));
+    }
+
+    partial void OnQuickBanChampionsChanged(IReadOnlyList<ChampionTileViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasQuickBanChampions));
+    }
+
+    partial void OnQuickplaySlotsChanged(IReadOnlyList<QuickplaySlotViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasQuickplaySlots));
+        OnPropertyChanged(nameof(CanSaveQuickplaySlots));
+        SaveQuickplaySlotsCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnTradeRequestsChanged(IReadOnlyList<ChampionTradeRequest> value)
+    {
+        OnPropertyChanged(nameof(HasTradeRequests));
+    }
+
+    partial void OnLobbyMembersChanged(IReadOnlyList<LobbyMemberViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasLobbyMembers));
     }
 
     partial void OnSelectedGameModeChanged(GameMode? value)
@@ -178,15 +468,136 @@ public partial class MainViewModel : ViewModelBase
         }
 
         return RunCommandAsync(
-            token => _lcu.CreateLobbyAsync(SelectedGameMode.QueueId, token),
-            $"Created {SelectedGameMode.Name} lobby");
+            token => _lcu.CreateLobbyAsync(SelectedGameMode, token),
+            $"Created {SelectedGameMode.Name} lobby",
+            refreshSnapshot: true);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSavePositions))]
+    private Task SavePositionsAsync() =>
+        RunCommandAsync(
+            async token =>
+            {
+                await _lcu.UpdatePositionPreferencesAsync(SelectedPrimaryPosition, SelectedSecondaryPosition, token);
+                _positionEditDirty = false;
+            },
+            $"Saved lanes: {SelectedPrimaryPosition}, {SelectedSecondaryPosition}",
+            refreshSnapshot: true);
+
+    [RelayCommand(CanExecute = nameof(CanSaveQuickplaySlots))]
+    private Task SaveQuickplaySlotsAsync() =>
+        RunCommandAsync(
+            async token =>
+            {
+                var slots = new List<LobbyPlayerSlot>(QuickplaySlots.Count);
+                foreach (var slot in QuickplaySlots)
+                {
+                    slots.Add(await ToQuickplaySlotAsync(slot, token));
+                }
+
+                await _lcu.UpdateQuickplaySlotsAsync(slots, token);
+            },
+            "Saved Quickplay slots",
+            refreshSnapshot: true);
+
+    [RelayCommand(CanExecute = nameof(CanUseMatchmaking))]
+    private Task StartMatchmakingAsync()
+    {
+        if (_currentLobbyState?.BlocksSwiftplayMatchmaking == true)
+        {
+            LastCommandResult = SwiftplayRestrictionMessage(_currentLobbyState);
+            return Task.CompletedTask;
+        }
+
+        return RunCommandAsync(_lcu.StartMatchmakingAsync, "Started matchmaking", refreshSnapshot: true);
     }
 
     [RelayCommand(CanExecute = nameof(CanUseMatchmaking))]
-    private Task StartMatchmakingAsync() => RunCommandAsync(_lcu.StartMatchmakingAsync, "Started matchmaking");
+    private Task CancelMatchmakingAsync() => RunCommandAsync(_lcu.CancelMatchmakingAsync, "Cancelled matchmaking", refreshSnapshot: true);
 
-    [RelayCommand(CanExecute = nameof(CanUseMatchmaking))]
-    private Task CancelMatchmakingAsync() => RunCommandAsync(_lcu.CancelMatchmakingAsync, "Cancelled matchmaking");
+    [RelayCommand(CanExecute = nameof(CanLeaveLobby))]
+    private Task LeaveLobbyAsync() => RunCommandAsync(_lcu.LeaveLobbyAsync, "Left lobby", refreshSnapshot: true);
+
+    [RelayCommand]
+    private void SelectModeGroup(string group)
+    {
+        SelectedModeGroup = group;
+        Screen = "Ready";
+    }
+
+    [RelayCommand]
+    private void Back()
+    {
+        if (Screen == "Profile")
+        {
+            Screen = ForcedScreenOr(_profileBackScreen);
+            return;
+        }
+
+        if (Phase == AppPhase.ChampionSelect)
+        {
+            Screen = "ChampionSelect";
+        }
+        else if (Phase == AppPhase.ReadyCheck)
+        {
+            Screen = "Ready";
+        }
+        else
+        {
+            Screen = "Home";
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanOpenCurrentSummonerProfile))]
+    private Task OpenCurrentSummonerProfileAsync() =>
+        _currentSummoner is null
+            ? Task.CompletedTask
+            : OpenProfileAsync(SummonerProfile.FromCurrent(_currentSummoner));
+
+    [RelayCommand]
+    private Task CheckProfileAsync(LobbyMemberViewModel member) =>
+        OpenProfileAsync(SummonerProfile.FromLobbyMember(member.Member));
+
+    [RelayCommand(CanExecute = nameof(CanAddFriend))]
+    private Task AddFriendAsync(LobbyMemberViewModel member) =>
+        RunCommandAsync(token => _lcu.SendFriendRequestAsync(member.Member, token), $"Sent friend request to {member.Name}");
+
+    [RelayCommand]
+    private void OpenQuickplaySlot(QuickplaySlotViewModel slot)
+    {
+        ActiveQuickplaySlot = slot;
+    }
+
+    [RelayCommand]
+    private void CloseQuickplayEditor()
+    {
+        ActiveQuickplaySlot = null;
+    }
+
+    [RelayCommand]
+    private async Task SelectQuickplayChampionAsync(ChampionTileViewModel tile)
+    {
+        if (ActiveQuickplaySlot is null)
+        {
+            return;
+        }
+
+        ActiveQuickplaySlot.SelectedChampionTile = tile;
+        await AutoSaveQuickplaySlotsAsync();
+    }
+
+    [RelayCommand]
+    private async Task SelectQuickplayPositionAsync(QuickplayPositionOptionViewModel option)
+    {
+        var position = option.Name;
+        if (ActiveQuickplaySlot is null || !PositionOptions.Contains(position))
+        {
+            return;
+        }
+
+        ActiveQuickplaySlot.SelectedPosition = position;
+        await AutoSaveQuickplaySlotsAsync();
+    }
 
     [RelayCommand]
     private void SelectChampionRole(ChampionRoleOptionViewModel role)
@@ -197,8 +608,62 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanChampionCommand))]
     private Task PickAsync() => RunChampionCommandAsync(_lcu.PickChampionAsync, "Pick submitted");
 
+    [RelayCommand]
+    private async Task PickChampionTileAsync(ChampionTileViewModel tile)
+    {
+        SelectedChampionTile = tile;
+        if (!CanChampionCommand)
+        {
+            return;
+        }
+
+        await RunChampionCommandAsync(_lcu.PickChampionAsync, "Pick submitted");
+    }
+
     [RelayCommand(CanExecute = nameof(CanChampionCommand))]
     private Task BanAsync() => RunChampionCommandAsync(_lcu.BanChampionAsync, "Ban submitted");
+
+    [RelayCommand]
+    private async Task BanChampionTileAsync(ChampionTileViewModel tile)
+    {
+        _suppressDeclare = true;
+        SelectedChampionTile = tile;
+        _suppressDeclare = false;
+        if (!CanChampionCommand)
+        {
+            return;
+        }
+
+        await RunChampionCommandAsync(_lcu.BanChampionAsync, "Ban submitted");
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedChampion))]
+    private void ToggleFavorite()
+    {
+        TogglePreference(_preferences.Favorites);
+        RefreshChampions();
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedChampion))]
+    private void ToggleQuickBan()
+    {
+        TogglePreference(_preferences.QuickBans);
+        RefreshQuickBans();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanPickAramChampion))]
+    private Task PickAramChampionAsync() => RunChampionCommandAsync(_lcu.PickChampionAsync, "ARAM champion selected");
+
+    [RelayCommand(CanExecute = nameof(CanSwapBenchChampion))]
+    private Task SwapBenchChampionAsync() => RunChampionCommandAsync(_lcu.SwapBenchChampionAsync, "Swapped bench champion");
+
+    [RelayCommand]
+    private Task AcceptTradeAsync(ChampionTradeRequest trade) =>
+        RunCommandAsync(token => _lcu.AcceptTradeAsync(trade.Id, token), "Accepted trade");
+
+    [RelayCommand]
+    private Task DeclineTradeAsync(ChampionTradeRequest trade) =>
+        RunCommandAsync(token => _lcu.DeclineTradeAsync(trade.Id, token), "Declined trade");
 
     private async Task PollAsync(CancellationToken cancellationToken)
     {
@@ -213,17 +678,24 @@ public partial class MainViewModel : ViewModelBase
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                Apply(new(AppPhase.WaitingForLeagueClient, null, null, null, "Waiting for League Client"));
+                Apply(new(AppPhase.WaitingForLeagueClient, null, null, null, null, null, [], [], [], [], "Waiting for League Client"));
             }
             catch (Exception exception)
             {
                 _log.Error("Polling failed", exception);
-                Apply(new(AppPhase.Error, null, null, null, "Polling failed; see diagnostic log"));
+                Apply(new(AppPhase.Error, null, null, null, null, null, [], [], [], [], "Polling failed; see diagnostic log"));
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
+            await Task.Delay(PollingDelayFor(Phase, Screen, _currentLobbyState is not null || LobbyMembers.Count > 0), cancellationToken).ConfigureAwait(false);
         }
     }
+
+    public static TimeSpan PollingDelayFor(AppPhase phase, string screen, bool hasLobby) =>
+        phase is AppPhase.ReadyCheck or AppPhase.ChampionSelect ? TimeSpan.FromSeconds(1) :
+        screen == "Profile" ? TimeSpan.FromSeconds(8) :
+        screen == "Ready" && hasLobby ? TimeSpan.FromSeconds(2) :
+        phase == AppPhase.Connected ? TimeSpan.FromSeconds(8) :
+        TimeSpan.FromSeconds(3);
 
     private async Task LoadChampionIconsAsync(CancellationToken cancellationToken)
     {
@@ -247,6 +719,250 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    private async Task LoadGameModeIconsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var summonersRift = await _gameModeIconCache.LoadAsync("map11.png", "Summoner's Rift", cancellationToken).ConfigureAwait(false);
+            var aram = await _gameModeIconCache.LoadAsync("map12.png", "ARAM", cancellationToken).ConfigureAwait(false);
+            Dispatcher.UIThread.Post(() =>
+            {
+                SummonersRiftIcon = summonersRift;
+                AramIcon = aram;
+            });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Game mode icon loading failed", exception);
+        }
+    }
+
+    private async Task LoadGameModesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var modes = await _lcu.GetQueuesAsync(cancellationToken).ConfigureAwait(false);
+            if (modes.Count == 0)
+            {
+                return;
+            }
+
+            _allGameModes = modes;
+            RefreshModeGroups();
+            RefreshGameModes();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Game mode loading failed", exception);
+        }
+    }
+
+    private void RefreshGameModes()
+    {
+        GameModes = _allGameModes
+            .Where(mode => mode.DisplayGroup == SelectedModeGroup)
+            .ToList();
+        SelectedGameMode = GameModes.FirstOrDefault();
+    }
+
+    private static bool IsAram(GameMode mode) => mode.QueueId is 450 or 2400;
+
+    private void RefreshModeGroups()
+    {
+        ModeGroups = _allGameModes
+            .Select(mode => mode.DisplayGroup)
+            .Distinct()
+            .OrderBy(group => group == "Summoner's Rift" ? 0 : group == "Co-op vs AI" ? 1 : group == "ARAM" ? 2 : group == "Other" ? 3 : group == "TFT" ? 4 : 5)
+            .ThenBy(group => group)
+            .ToList();
+        if (!ModeGroups.Contains(SelectedModeGroup))
+        {
+            SelectedModeGroup = ModeGroups.FirstOrDefault() ?? "Summoner's Rift";
+        }
+    }
+
+    private IEnumerable<Champion> FilterForCurrentChampionSelect(IReadOnlyList<Champion> champions)
+    {
+        if (_currentChampionSelectSession is null)
+        {
+            return champions;
+        }
+
+        var banned = _currentChampionSelectSession.BannedChampionIds;
+        var blocked = _disabledChampionIds.Concat(banned).ToHashSet();
+        if (IsRandomCardChampionSelect)
+        {
+            return [];
+        }
+
+        if (_currentChampionSelectSession.CurrentAction("pick") is not null && _pickableChampionIds.Count > 0)
+        {
+            return champions.Where(champion => _pickableChampionIds.Contains(champion.ChampionId) && !blocked.Contains(champion.ChampionId));
+        }
+
+        return champions.Where(champion => !blocked.Contains(champion.ChampionId));
+    }
+
+    private void ApplyPreferencesToTiles()
+    {
+        var favorites = _preferences.Favorites.ToHashSet();
+        var quickBans = _preferences.QuickBans.ToHashSet();
+        foreach (var tile in _allChampionTiles)
+        {
+            tile.IsFavorite = favorites.Contains(tile.Champion.ChampionId);
+            tile.IsQuickBan = quickBans.Contains(tile.Champion.ChampionId);
+        }
+    }
+
+    private void TogglePreference(List<int> championIds)
+    {
+        if (SelectedChampion is null)
+        {
+            return;
+        }
+
+        if (!championIds.Remove(SelectedChampion.ChampionId))
+        {
+            championIds.Add(SelectedChampion.ChampionId);
+        }
+
+        ApplyPreferencesToTiles();
+        _preferenceStore.Save(_preferences);
+    }
+
+    private void RefreshQuickBans()
+    {
+        if (_currentChampionSelectSession?.CurrentAction("ban") is null)
+        {
+            QuickBanChampions = [];
+            return;
+        }
+
+        QuickBanChampions = FilterForCurrentChampionSelect(_championCatalog.All)
+            .Where(champion => _preferences.QuickBans.Contains(champion.ChampionId))
+            .OrderBy(champion => _preferences.QuickBans.IndexOf(champion.ChampionId))
+            .Select(champion => _championTilesById[champion.ChampionId])
+            .ToList();
+    }
+
+    private void ApplyChampionSelectState(LcuSnapshot snapshot)
+    {
+        _currentChampionSelectSession = snapshot.ChampionSelect;
+        _pickableChampionIds = snapshot.PickableChampionIds.ToHashSet();
+        _disabledChampionIds = snapshot.DisabledChampionIds.ToHashSet();
+        _allyHoveredChampionIds = snapshot.ChampionSelect?.AllyHoveredChampionIds ?? new HashSet<int>();
+        IsAramChampionSelect = IsAram(snapshot.Gameflow);
+        IsRandomCardChampionSelect = IsRandomCardChampionSelectSession(snapshot);
+        RandomCardChampionSelectLabel = IsAramChampionSelect ? "ARAM" : "Random Pick";
+        ChampionSelectTimeline = GetChampionSelectTimeline(snapshot.ChampionSelect);
+        TradeRequests = snapshot.TradeRequests.Where(trade => trade.IsPending).ToList();
+
+        var localChampionId = snapshot.ChampionSelect?.LocalPlayer?.ChampionId ?? 0;
+        CurrentChampion = localChampionId > 0 && _championTilesById.TryGetValue(localChampionId, out var localChampion)
+            ? localChampion.Name
+            : "No champion selected";
+
+        AramAvailableChampions = localChampionId > 0
+            ? []
+            : ToChampionTiles(snapshot.PickableChampionIds);
+        AramBenchChampions = ToChampionTiles(snapshot.ChampionSelect?.AvailableBenchChampionIds ?? []);
+
+        RefreshChampions();
+        RefreshQuickBans();
+        RefreshBanWarning();
+        OnPropertyChanged(nameof(CanChampionCommand));
+        OnPropertyChanged(nameof(CanPickAramChampion));
+        OnPropertyChanged(nameof(CanSwapBenchChampion));
+        PickAramChampionCommand.NotifyCanExecuteChanged();
+        SwapBenchChampionCommand.NotifyCanExecuteChanged();
+    }
+
+    private static string GetChampionSelectTimeline(ChampionSelectSession? session)
+    {
+        if (session is null)
+        {
+            return "Waiting";
+        }
+
+        if (session.CurrentAction("ban") is not null)
+        {
+            return "Banning";
+        }
+
+        if (session.CurrentAction("pick") is not null)
+        {
+            return session.LocalPlayer?.ChampionId > 0 ? "Picking" : "Declaring";
+        }
+
+        var localActions = session.Actions.SelectMany(group => group).Where(action => action.ActorCellId == session.LocalPlayerCellId).ToList();
+        return localActions.Count > 0 && localActions.All(action => action.Completed) ? "Completed" : "Waiting";
+    }
+
+    private void RefreshBanWarning()
+    {
+        BanWarning = SelectedChampion is not null && _allyHoveredChampionIds.Contains(SelectedChampion.ChampionId)
+            ? "Ally is hovering this champion"
+            : "";
+    }
+
+    [RelayCommand]
+    private async Task PickAramChampionTileAsync(ChampionTileViewModel tile)
+    {
+        SelectedChampionTile = tile;
+        if (!CanPickAramChampion)
+        {
+            return;
+        }
+
+        await RunChampionCommandAsync(_lcu.PickChampionAsync, $"{RandomCardChampionSelectLabel} champion selected");
+    }
+
+    [RelayCommand]
+    private async Task SwapBenchChampionTileAsync(ChampionTileViewModel tile)
+    {
+        SelectedChampionTile = tile;
+        if (!CanSwapBenchChampion)
+        {
+            return;
+        }
+
+        await RunChampionCommandAsync(_lcu.SwapBenchChampionAsync, "Swapped bench champion");
+    }
+
+    private IReadOnlyList<ChampionTileViewModel> ToChampionTiles(IEnumerable<int> championIds) =>
+        championIds
+            .Distinct()
+            .Where(championId => _championTilesById.ContainsKey(championId))
+            .Select(championId => _championTilesById[championId])
+            .ToList();
+
+    private static bool IsAram(GameflowSession? gameflow)
+    {
+        var queue = gameflow?.GameData?.Queue;
+        var queueId = queue?.QueueId ?? queue?.Id;
+        return queueId is 450 or 2400
+            || (queue?.GameMode?.Contains("ARAM", StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    private static bool IsRandomCardChampionSelectSession(LcuSnapshot snapshot)
+    {
+        var session = snapshot.ChampionSelect;
+        return IsAram(snapshot.Gameflow)
+            || session?.AllowSubsetChampionPicks == true
+            || session?.AvailableBenchChampionIds.Count > 0;
+    }
+
+    private static string ChampionSelectModeLabel(LcuSnapshot snapshot) =>
+        IsAram(snapshot.Gameflow) ? "ARAM" :
+        IsRandomCardChampionSelectSession(snapshot) ? "Random Pick" :
+        "5v5";
+
     private void Apply(LcuSnapshot snapshot)
     {
         if (!Dispatcher.UIThread.CheckAccess())
@@ -257,21 +973,326 @@ public partial class MainViewModel : ViewModelBase
 
         Phase = snapshot.Phase;
         Status = snapshot.Message;
+        _currentSummoner = snapshot.Summoner;
+        _currentLobbyState = snapshot.Lobby;
         Summoner = snapshot.Summoner?.Name ?? "Not connected";
+        CurrentLobby = DescribeLobby(snapshot.Lobby, snapshot.LobbyMembers);
+        ApplyLobbySetupState(snapshot.Lobby);
+        var membersNeedingIcons = ApplyLobbyMembers(snapshot);
+        if (membersNeedingIcons.Count > 0)
+        {
+            _ = Task.Run(() => LoadLobbyMemberIconsAsync(membersNeedingIcons, _polling.Token));
+        }
+        ApplyScreenForSnapshot(snapshot);
         ReadyCheck = snapshot.ReadyCheck is null
             ? "No ready check"
             : $"{snapshot.ReadyCheck.State} / {snapshot.ReadyCheck.PlayerResponse}";
         ChampionSelect = snapshot.ChampionSelect is null
             ? "Not in champion select"
-            : $"Allies: {snapshot.ChampionSelect.MyTeam.Count}, enemies: {snapshot.ChampionSelect.TheirTeam.Count}";
+            : $"{ChampionSelectModeLabel(snapshot)} - Allies: {snapshot.ChampionSelect.MyTeam.Count}, enemies: {snapshot.ChampionSelect.TheirTeam.Count}";
+        ApplyChampionSelectState(snapshot);
         AcceptCommand.NotifyCanExecuteChanged();
         DeclineCommand.NotifyCanExecuteChanged();
+        OpenCurrentSummonerProfileCommand.NotifyCanExecuteChanged();
+        AddFriendCommand.NotifyCanExecuteChanged();
         CreateLobbyCommand.NotifyCanExecuteChanged();
         StartMatchmakingCommand.NotifyCanExecuteChanged();
         CancelMatchmakingCommand.NotifyCanExecuteChanged();
+        LeaveLobbyCommand.NotifyCanExecuteChanged();
         PickCommand.NotifyCanExecuteChanged();
         BanCommand.NotifyCanExecuteChanged();
     }
+
+    private void ApplyLobbySetupState(LobbyState? lobby)
+    {
+        var local = lobby?.LocalMember ?? lobby?.Members?.FirstOrDefault(member => member.SummonerId == _currentSummoner?.SummonerId);
+        if (!_positionEditDirty && local is not null)
+        {
+            _hydratingPositions = true;
+            SelectedPrimaryPosition = string.IsNullOrWhiteSpace(local.FirstPositionPreference) ? SelectedPrimaryPosition : local.FirstPositionPreference!;
+            SelectedSecondaryPosition = string.IsNullOrWhiteSpace(local.SecondPositionPreference) ? SelectedSecondaryPosition : local.SecondPositionPreference!;
+            _hydratingPositions = false;
+        }
+
+        LobbySetupStatus =
+            lobby?.GameConfig?.ShowQuickPlaySlotSelection == true
+                ? DescribeQuickplaySetup(local, lobby)
+                : lobby?.GameConfig?.ShowPositionSelector == true
+                    ? "Choose primary and secondary lanes before matchmaking."
+                    : "";
+        ApplyQuickplaySlots(lobby?.GameConfig?.ShowQuickPlaySlotSelection == true ? local?.PlayerSlots ?? [] : []);
+
+        OnPropertyChanged(nameof(IsPositionSelectorVisible));
+        OnPropertyChanged(nameof(IsQuickplaySetupVisible));
+        OnPropertyChanged(nameof(CanSavePositions));
+        SavePositionsCommand.NotifyCanExecuteChanged();
+        OnQuickplaySlotChanged();
+    }
+
+    private IReadOnlyList<QuickplaySlotViewModel> ToQuickplaySlots(IEnumerable<LobbyPlayerSlot> slots) =>
+        slots.Select((slot, index) =>
+            new QuickplaySlotViewModel(
+                $"Slot {index + 1}",
+                slot,
+                _championTilesById.TryGetValue(slot.ChampionId, out var champion) ? champion : null,
+                string.IsNullOrWhiteSpace(slot.PositionPreference) ? PositionOptions[0] : slot.PositionPreference!,
+                OnQuickplaySlotChanged))
+            .ToList();
+
+    private void ApplyQuickplaySlots(IReadOnlyList<LobbyPlayerSlot> slots)
+    {
+        if (slots.Count == 0)
+        {
+            if (QuickplaySlots.Count > 0)
+            {
+                QuickplaySlots = [];
+            }
+
+            return;
+        }
+
+        if (QuickplaySlots.Count == slots.Count
+            && QuickplaySlots.Select(slot => slot.OriginalSlot).SequenceEqual(slots))
+        {
+            return;
+        }
+
+        ActiveQuickplaySlot = null;
+        QuickplaySlots = ToQuickplaySlots(slots);
+    }
+
+    private void OnQuickplaySlotChanged()
+    {
+        OnPropertyChanged(nameof(CanSaveQuickplaySlots));
+        SaveQuickplaySlotsCommand.NotifyCanExecuteChanged();
+        RefreshQuickplayPositionOptions();
+        RefreshQuickplayChampions();
+    }
+
+    private Task AutoSaveQuickplaySlotsAsync() =>
+        CanSaveQuickplaySlots ? SaveQuickplaySlotsAsync() : Task.CompletedTask;
+
+    private void RefreshQuickplayPositionOptions()
+    {
+        foreach (var option in QuickplayPositionOptions)
+        {
+            option.IsSelected = ActiveQuickplaySlot is not null && option.Name == ActiveQuickplaySlot.SelectedPosition;
+        }
+    }
+
+    private void RefreshQuickplayChampions()
+    {
+        if (ActiveQuickplaySlot is null)
+        {
+            QuickplayChampions = [];
+            return;
+        }
+
+        var query = QuickplaySearch.Trim().ToLowerInvariant();
+        QuickplayChampions = _championCatalog.All
+            .Where(champion => MatchesQuickplayLane(champion, ActiveQuickplaySlot.SelectedPosition))
+            .Where(champion => string.IsNullOrWhiteSpace(query) || champion.SearchText.Contains(query))
+            .OrderBy(champion => champion.Name)
+            .Select(champion => _championTilesById[champion.ChampionId])
+            .ToList();
+    }
+
+    private static bool MatchesQuickplayLane(Champion champion, string position) =>
+        position switch
+        {
+            "TOP" => champion.Tags.Any(tag => tag is "Fighter" or "Tank"),
+            "JUNGLE" => champion.Tags.Any(tag => tag is "Fighter" or "Tank" or "Assassin"),
+            "MIDDLE" => champion.Tags.Any(tag => tag is "Mage" or "Assassin"),
+            "BOTTOM" => champion.Tags.Any(tag => tag is "Marksman" or "Mage"),
+            "UTILITY" => champion.Tags.Any(tag => tag is "Support" or "Mage"),
+            _ => true
+        };
+
+    private async Task<LobbyPlayerSlot> ToQuickplaySlotAsync(QuickplaySlotViewModel slot, CancellationToken cancellationToken)
+    {
+        var championId = slot.SelectedChampionTile?.Champion.ChampionId ?? 0;
+        if (championId <= 0 || !PositionOptions.Contains(slot.SelectedPosition))
+        {
+            throw new InvalidOperationException("Select a champion and lane for both Quickplay slots.");
+        }
+
+        var unchanged = championId == slot.OriginalSlot.ChampionId
+            && string.Equals(slot.SelectedPosition, slot.OriginalSlot.PositionPreference, StringComparison.OrdinalIgnoreCase);
+        if (unchanged)
+        {
+            return slot.OriginalSlot;
+        }
+
+        var perks = await _lcu.GetQuickplayPerksAsync(championId, slot.SelectedPosition, cancellationToken);
+        if (string.IsNullOrWhiteSpace(perks))
+        {
+            throw new InvalidOperationException($"Recommended runes are unavailable for {slot.SelectedChampionTile!.Name} {slot.SelectedPosition}.");
+        }
+
+        return new LobbyPlayerSlot(
+            championId,
+            slot.SelectedPosition,
+            championId * 1000,
+            perks,
+            slot.SelectedPosition == "JUNGLE" ? 11UL : 14UL,
+            4);
+    }
+
+    private static string DescribeQuickplaySetup(LobbyMember? local, LobbyState lobby)
+    {
+        var slots = local?.PlayerSlots is { Count: > 0 }
+            ? $"{local.PlayerSlots.Count} Quickplay slot{(local.PlayerSlots.Count == 1 ? "" : "s")} selected"
+            : "No Quickplay slots selected";
+        var scarce = lobby.ScarcePositions is { Count: > 0 }
+            ? $" Scarce lanes: {string.Join(", ", lobby.ScarcePositions)}."
+            : "";
+        return $"{slots}. Complete champion and lane setup in League Client for this mode.{scarce}";
+    }
+
+    private static bool CanAddFriend(LobbyMemberViewModel? member) => member?.CanAddFriend == true;
+
+    private IReadOnlyList<LobbyMemberViewModel> ApplyLobbyMembers(LcuSnapshot snapshot)
+    {
+        var nextByKey = new Dictionary<string, LobbyMemberViewModel>();
+        var nextMembers = new List<LobbyMemberViewModel>(snapshot.LobbyMembers.Count);
+        var needsIcons = new List<LobbyMemberViewModel>();
+
+        foreach (var member in snapshot.LobbyMembers)
+        {
+            var isLocal = member.SummonerId is not null && member.SummonerId == snapshot.Summoner?.SummonerId;
+            var key = LobbyMemberKey(member);
+            var row = key is not null && _lobbyMembersByKey.TryGetValue(key, out var existing)
+                ? existing
+                : new LobbyMemberViewModel(member, isLocal);
+
+            if (row.Update(member, isLocal) || row.Icon is null)
+            {
+                needsIcons.Add(row);
+            }
+
+            if (key is not null)
+            {
+                nextByKey[key] = row;
+            }
+
+            nextMembers.Add(row);
+        }
+
+        _lobbyMembersByKey = nextByKey;
+        LobbyMembers = nextMembers;
+        return needsIcons;
+    }
+
+    private static string? LobbyMemberKey(LobbyMember member) =>
+        !string.IsNullOrWhiteSpace(member.Puuid) ? $"puuid:{member.Puuid}" :
+        member.SummonerId is not null ? $"summoner:{member.SummonerId}" :
+        null;
+
+    private static string SwiftplayRestrictionMessage(LobbyState lobby)
+    {
+        var code = lobby.Restrictions?.FirstOrDefault()?.RestrictionCode;
+        if (string.Equals(code, "QPPlayerScarcePositionCoverageRestriction", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Swiftplay needs valid Quickplay champion/position slots before matchmaking";
+        }
+
+        return string.IsNullOrWhiteSpace(code)
+            ? "Swiftplay is not ready for matchmaking"
+            : $"Swiftplay matchmaking blocked: {code}";
+    }
+
+    private async Task LoadLobbyMemberIconsAsync(IReadOnlyList<LobbyMemberViewModel> members, CancellationToken cancellationToken)
+    {
+        try
+        {
+            foreach (var member in members.Where(member => member.IconId is not null))
+            {
+                var icon = await _summonerIconCache.LoadAsync(member.IconId, cancellationToken).ConfigureAwait(false);
+                if (icon is not null)
+                {
+                    Dispatcher.UIThread.Post(() => member.Icon = icon);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Summoner icon loading failed", exception);
+        }
+    }
+
+    private void ApplyScreenForSnapshot(LcuSnapshot snapshot)
+    {
+        if (Screen == "Profile" || snapshot.Phase is AppPhase.ReadyCheck or AppPhase.ChampionSelect)
+        {
+            return;
+        }
+
+        if (snapshot.Lobby is not null || snapshot.LobbyMembers.Count > 0)
+        {
+            Screen = "Ready";
+        }
+    }
+
+    private async Task OpenProfileAsync(SummonerProfile profile)
+    {
+        if (Screen != "Profile")
+        {
+            _profileBackScreen = Screen;
+        }
+
+        SelectedProfile = ProfilePanelViewModel.From(profile, "Ranked unavailable");
+        Screen = "Profile";
+
+        if (profile.SummonerId is not { } summonerId)
+        {
+            return;
+        }
+
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var fetched = await _lcu.GetSummonerProfileAsync(summonerId, timeout.Token) ?? profile;
+            RankedSummary? ranked = null;
+            try
+            {
+                ranked = await _lcu.GetRankedSummaryAsync(summonerId, timeout.Token);
+            }
+            catch (Exception exception)
+            {
+                _log.Error("Ranked profile lookup failed", exception);
+            }
+
+            SelectedProfile = ProfilePanelViewModel.From(fetched, ranked?.Text ?? "Ranked unavailable");
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Summoner profile lookup failed", exception);
+        }
+    }
+
+    private string DescribeLobby(LobbyState? lobby, IReadOnlyList<LobbyMember> members)
+    {
+        if (lobby is null && members.Count == 0)
+        {
+            return "No lobby";
+        }
+
+        var queueId = lobby?.GameConfig?.QueueId;
+        var mode = queueId is not null
+            ? _gameModeCatalog.All.FirstOrDefault(gameMode => gameMode.QueueId == queueId)?.Name
+            : null;
+
+        mode ??= lobby?.GameConfig?.GameMode ?? "Current lobby";
+        return $"{mode} - {members.Count} member{(members.Count == 1 ? "" : "s")}";
+    }
+
+    private string ForcedScreenOr(string fallback) =>
+        Phase == AppPhase.ChampionSelect ? "ChampionSelect" :
+        Phase == AppPhase.ReadyCheck ? "Ready" :
+        fallback;
 
     private async Task RunChampionCommandAsync(Func<int, CancellationToken, Task> command, string success)
     {
@@ -284,17 +1305,182 @@ public partial class MainViewModel : ViewModelBase
         await RunCommandAsync(token => command(SelectedChampion.ChampionId, token), success);
     }
 
-    private async Task RunCommandAsync(Func<CancellationToken, Task> command, string success)
+    private async Task DeclareChampionAsync(int championId)
+    {
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await _lcu.DeclareChampionAsync(championId, timeout.Token);
+            LastCommandResult = "Champion declared";
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Champion declare failed", exception);
+        }
+    }
+
+    private async Task RunCommandAsync(Func<CancellationToken, Task> command, string success, bool refreshSnapshot = false)
     {
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             await command(timeout.Token);
             LastCommandResult = success;
+            if (refreshSnapshot)
+            {
+                await RefreshSnapshotAsync();
+            }
         }
         catch (Exception exception)
         {
             LastCommandResult = exception.Message;
         }
     }
+
+    private async Task RefreshSnapshotAsync()
+    {
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            Apply(await _lcu.GetSnapshotAsync(timeout.Token));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _log.Error("Command refresh failed", exception);
+        }
+    }
+}
+
+public sealed class LobbyMemberViewModel
+    : ViewModelBase
+{
+    private bool _isLocal;
+
+    public LobbyMemberViewModel(LobbyMember member, bool isLocal)
+    {
+        Member = member;
+        _isLocal = isLocal;
+    }
+
+    public LobbyMember Member { get; private set; }
+    public int? IconId => Member.IconId;
+    public Bitmap? Icon
+    {
+        get => _icon;
+        set
+        {
+            if (!SetProperty(ref _icon, value))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(HasIcon));
+            OnPropertyChanged(nameof(HasNoIcon));
+        }
+    }
+
+    public string Name => Member.Name;
+    public string Position => Member.PlayerSlots is { Count: > 0 }
+        ? string.Join(", ", Member.PlayerSlots.Select(slot => slot.PositionPreference).Where(position => !string.IsNullOrWhiteSpace(position)))
+        : Member.Position;
+    public string Badges => string.Join(" ", new[] { _isLocal ? "You" : "", Member.IsLeader ? "Leader" : "", Member.Ready ? "Ready" : "" }.Where(value => value.Length > 0));
+    public bool HasBadges => Badges.Length > 0;
+    public bool HasIcon => Icon is not null;
+    public bool HasNoIcon => Icon is null;
+    public bool CanAddFriend => !_isLocal
+        && !string.IsNullOrWhiteSpace(Member.GameName)
+        && !string.IsNullOrWhiteSpace(Member.TagLine);
+
+    private Bitmap? _icon;
+
+    public bool Update(LobbyMember member, bool isLocal)
+    {
+        var iconChanged = member.IconId != IconId;
+        if (Member == member && _isLocal == isLocal)
+        {
+            return false;
+        }
+
+        Member = member;
+        _isLocal = isLocal;
+        if (iconChanged)
+        {
+            Icon = null;
+        }
+
+        OnPropertyChanged(nameof(Member));
+        OnPropertyChanged(nameof(IconId));
+        OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(Position));
+        OnPropertyChanged(nameof(Badges));
+        OnPropertyChanged(nameof(HasBadges));
+        OnPropertyChanged(nameof(CanAddFriend));
+        return iconChanged;
+    }
+}
+
+public partial class QuickplaySlotViewModel : ViewModelBase
+{
+    private readonly Action _changed;
+
+    public QuickplaySlotViewModel(string slot, LobbyPlayerSlot originalSlot, ChampionTileViewModel? selectedChampionTile, string selectedPosition, Action changed)
+    {
+        Slot = slot;
+        OriginalSlot = originalSlot;
+        _selectedChampionTile = selectedChampionTile;
+        _selectedPosition = selectedPosition;
+        _changed = changed;
+    }
+
+    public string Slot { get; }
+    public LobbyPlayerSlot OriginalSlot { get; }
+    public string Champion => SelectedChampionTile?.Name ?? $"Champion {OriginalSlot.ChampionId}";
+    public string Position => SelectedPosition;
+
+    [ObservableProperty]
+    private ChampionTileViewModel? _selectedChampionTile;
+
+    [ObservableProperty]
+    private string _selectedPosition;
+
+    [ObservableProperty]
+    private bool _isActive;
+
+    partial void OnSelectedChampionTileChanged(ChampionTileViewModel? value)
+    {
+        OnPropertyChanged(nameof(Champion));
+        _changed();
+    }
+
+    partial void OnSelectedPositionChanged(string value)
+    {
+        OnPropertyChanged(nameof(Position));
+        _changed();
+    }
+}
+
+public partial class QuickplayPositionOptionViewModel(string name) : ViewModelBase
+{
+    public string Name { get; } = name;
+
+    [ObservableProperty]
+    private bool _isSelected;
+}
+
+public sealed record ProfilePanelViewModel(
+    string Name,
+    string Level,
+    string Icon,
+    string SummonerId,
+    string Puuid,
+    string Ranked)
+{
+    public static ProfilePanelViewModel From(SummonerProfile profile, string ranked) =>
+        new(
+            profile.Name,
+            profile.SummonerLevel is null ? "Level unknown" : $"Level {profile.SummonerLevel}",
+            profile.ProfileIconId is null ? "Icon unknown" : $"Icon {profile.ProfileIconId}",
+            profile.SummonerId is null ? "Summoner ID unavailable" : $"Summoner ID {profile.SummonerId}",
+            string.IsNullOrWhiteSpace(profile.Puuid) ? "PUUID unavailable" : $"PUUID {profile.Puuid}",
+            ranked);
 }

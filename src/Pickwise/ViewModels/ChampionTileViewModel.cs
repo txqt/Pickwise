@@ -12,6 +12,12 @@ public partial class ChampionTileViewModel(Champion champion) : ViewModelBase
     [ObservableProperty]
     private Bitmap? _icon;
 
+    [ObservableProperty]
+    private bool _isFavorite;
+
+    [ObservableProperty]
+    private bool _isQuickBan;
+
     public bool HasIcon => Icon is not null;
     public bool HasNoIcon => Icon is null;
 

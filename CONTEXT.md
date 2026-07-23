@@ -63,3 +63,19 @@ _Avoid_: telemetry, remote error reporting
 **Match History**:
 The player's recent completed League of Legends matches and basic performance details.
 _Avoid_: live match state, meta dashboard
+
+**Match Detail**:
+The expanded details for one completed match in Match History, focused on the viewed player's build and performance.
+_Avoid_: live match analysis, full team timeline
+
+**Match Award**:
+A Pickwise-derived post-match rank title shown in Match Detail from completed match participant stats.
+_Avoid_: official Riot rating, live award, OP.GG score
+
+**MVP Award**:
+The Match Award for the highest-scored participant in a completed match.
+_Avoid_: Minimum Viable Product, winning-team-only award
+
+**SVP Award**:
+The Match Award for the second highest-scored participant in a completed match.
+_Avoid_: losing-team-only award, consolation rank

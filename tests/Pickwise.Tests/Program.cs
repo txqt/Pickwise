@@ -41,7 +41,9 @@ AssertChampionSelectTimelineLabels();
 AssertFavoritesSortFirst();
 AssertQuickBansRespectAvailability();
 AssertTradeCommandsCallLcu();
+AssertMatchAwardsRankAllPlayers();
 AssertCurrentSummonerProfileOpensAndBackReturnsHome();
+AssertProfileMatchDetailExpandsOneAtATime();
 AssertLobbyRendersFromSnapshot();
 AssertLobbyPayloadLoadsEmbeddedMembers();
 AssertSwiftplayLobbyPayloadLoadsSlotsAndRestrictions();
@@ -63,6 +65,7 @@ AssertQuickplaySetupIsDetectOnly();
 AssertQuickplayEditorSurvivesUnchangedPoll();
 AssertQuickplayEditorFiltersByActiveLane();
 AssertQuickplaySlotsCanBeSavedWithRecommendedRunes();
+AssertQuickplaySpellSettingsOverrideSavedSlots();
 AssertCustomLobbyUsesModeCommand();
 AssertBotModesUseOwnGroup();
 AssertLeaveLobbyCallsLcu();
@@ -338,6 +341,22 @@ static void AssertTradeCommandsCallLcu()
     Assert(lcu.DeclinedTradeId == 7, "decline trade calls LCU with trade id");
 }
 
+static void AssertMatchAwardsRankAllPlayers()
+{
+    var participants = MatchHistoryTestData.ProfileMatchParticipants();
+    var awards = MatchAwardScorer.Score(participants);
+
+    Assert(awards.Count == 10, "match awards rank every participant");
+    Assert(awards[0].Kind == "MVP" && awards[0].Rank == 1, "top score is MVP");
+    Assert(awards[1].Kind == "SVP" && awards[1].Rank == 2, "second score is SVP");
+    Assert(awards[2].Kind == "Top 3" && awards[2].Rank == 3, "third score is Top 3");
+    Assert(awards.Last().Kind == "Top 10" && awards.Last().Rank == 10, "last participant is Top 10");
+    Assert(awards.Zip(awards.Skip(1)).All(pair => pair.First.Score >= pair.Second.Score), "match awards are sorted by score");
+    Assert(MatchAwardScorer.Score([]).Count == 0, "empty match participants do not create awards");
+    Assert(MatchAwardScorer.Score([participants[0]]).Count == 0, "single participant does not create MVP");
+    Assert(MatchAwardScorer.Score([participants[0] with { TeamId = 0 }]).Count == 0, "missing team data does not create awards");
+}
+
 static void AssertCurrentSummonerProfileOpensAndBackReturnsHome()
 {
     var viewModel = new MainViewModel(new ProfileLcuClient(hasLobby: false), new LocalDiagnosticLog(), TempPreferences());
@@ -348,9 +367,45 @@ static void AssertCurrentSummonerProfileOpensAndBackReturnsHome()
 
     Assert(viewModel.IsProfileScreen, "current summoner click opens profile screen");
     Assert(viewModel.SelectedProfile?.Name == "Local#NA1", "current summoner profile uses current summoner data");
+    Assert(viewModel.ProfileMatches.Count == 2, "current summoner profile loads match history");
+    Assert(viewModel.ProfileMatches[0].Champion == "Ahri", "match history resolves champion name");
+    Assert(viewModel.ProfileMatches[0].EconomyLine.Contains("CS 184"), "match history shows creep score");
+    Assert(viewModel.ProfileMatches[0].CombatLine.Contains("Damage 28,600"), "match history shows champion damage");
+    Assert(viewModel.ProfileMatches[0].Items.Any(item => item.Id == 6655), "match history shows item ids");
+    Assert(viewModel.ProfileMatches[0].ViewerAward?.Kind == "MVP", "match history row exposes viewer award badge");
+    Assert(viewModel.ProfileMatches[0].Awards.Count == 10, "match detail contains every ranked participant");
+    Assert(viewModel.ProfileMatches[0].Awards[0].Team == "Team 100", "match detail rank includes team");
+    Assert(viewModel.ProfileMatches[0].Awards[0].Result == "Win", "match detail rank includes result");
 
     viewModel.BackCommand.Execute(null);
     Assert(viewModel.IsHomeScreen, "profile back returns home");
+}
+
+static void AssertProfileMatchDetailExpandsOneAtATime()
+{
+    var viewModel = new MainViewModel(new ProfileLcuClient(hasLobby: false), new LocalDiagnosticLog(), TempPreferences());
+    Thread.Sleep(100);
+
+    viewModel.OpenCurrentSummonerProfileCommand.Execute(null);
+    Thread.Sleep(100);
+    var first = viewModel.ProfileMatches[0];
+    var second = viewModel.ProfileMatches[1];
+
+    viewModel.ToggleProfileMatchCommand.Execute(first);
+    Assert(first.IsExpanded, "clicking match opens match detail");
+    Assert(!second.IsExpanded, "other match stays collapsed");
+    viewModel.OpenProfileMatchDetailCommand.Execute(first);
+    Assert(viewModel.IsProfileMatchDetailOpen, "detail button opens match detail overlay");
+    Assert(viewModel.ProfileMatchDetail?.Awards.Count == 10, "match detail overlay shows ranked participants");
+    viewModel.CloseProfileMatchDetailCommand.Execute(null);
+    Assert(!viewModel.IsProfileMatchDetailOpen, "match detail overlay closes");
+
+    viewModel.ToggleProfileMatchCommand.Execute(second);
+    Assert(!first.IsExpanded, "opening another match closes previous detail");
+    Assert(second.IsExpanded, "second match opens detail");
+
+    viewModel.ToggleProfileMatchCommand.Execute(second);
+    Assert(!second.IsExpanded, "clicking open match closes detail");
 }
 
 static void AssertLobbyRendersFromSnapshot()
@@ -443,6 +498,7 @@ static void AssertLobbyMemberProfileUsesSharedProfile()
     Assert(viewModel.IsProfileScreen, "lobby member check profile opens profile screen");
     Assert(viewModel.SelectedProfile?.Name == "Friend#EUW", "lobby member profile loads selected member");
     Assert(viewModel.SelectedProfile?.Ranked.Contains("GOLD") == true, "lobby member profile includes ranked summary");
+    Assert(viewModel.ProfileMatches.Count == 2, "lobby member profile includes match history");
 }
 
 static void AssertRankedFailureStillOpensProfile()
@@ -636,21 +692,21 @@ static void AssertQuickplayEditorFiltersByActiveLane()
 
     var slot = viewModel.QuickplaySlots[1];
     viewModel.OpenQuickplaySlotCommand.Execute(slot);
-    viewModel.SelectQuickplayPositionCommand.Execute(viewModel.QuickplayPositionOptions.Single(position => position.Name == "MIDDLE"));
-    Thread.Sleep(100);
+    slot.SelectedPosition = "MIDDLE";
 
     Assert(viewModel.IsQuickplayEditorOpen, "quickplay slot opens editor");
     Assert(viewModel.ActiveQuickplaySlot == slot && slot.IsActive, "quickplay editor focuses clicked slot");
-    Assert(viewModel.QuickplayPositionOptions.Single(position => position.Name == "MIDDLE").IsSelected, "quickplay lane filter marks active lane");
     Assert(viewModel.QuickplayChampions.Any(champion => champion.Champion.ChampionId == 103), "middle quickplay filter includes Ahri");
     Assert(viewModel.QuickplayChampions.All(champion => champion.Champion.ChampionId != 86), "middle quickplay filter excludes Garen");
-    Assert(lcu.SavedQuickplaySlots?[1].PositionPreference == "MIDDLE", "quickplay lane filter auto-saves active slot lane");
+
+    viewModel.SelectQuickplayChampionRoleCommand.Execute(viewModel.QuickplayChampionRoles.Single(role => role.Name == "Mage"));
+    Assert(viewModel.QuickplayChampionRoles.Single(role => role.Name == "Mage").IsSelected, "quickplay role icon filter marks selected role");
+    Assert(viewModel.QuickplayChampions.All(champion => champion.Champion.Tags.Contains("Mage")), "quickplay role icon filter narrows champion list");
 
     var ahri = viewModel.QuickplayChampions.Single(champion => champion.Champion.ChampionId == 103);
     viewModel.SelectQuickplayChampionCommand.Execute(ahri);
-    Thread.Sleep(100);
     Assert(slot.SelectedChampionTile == ahri, "quickplay champion picker updates active slot");
-    Assert(lcu.SavedQuickplaySlots?[1].ChampionId == 103, "quickplay champion picker auto-saves active slot champion");
+    Assert(lcu.SavedQuickplaySlots is null, "quickplay picker waits for explicit save");
 }
 
 static void AssertQuickplaySlotsCanBeSavedWithRecommendedRunes()
@@ -675,6 +731,25 @@ static void AssertQuickplaySlotsCanBeSavedWithRecommendedRunes()
     Assert(lcu.SavedQuickplaySlots[1].Perks == "{\"perkIds\":[8112],\"perkStyle\":8100,\"perkSubStyle\":8000}", "changed quickplay slot uses recommended runes");
     Assert(lcu.SavedQuickplaySlots[1].SkinId == 103000, "changed quickplay slot uses base skin");
     Assert(lcu.SavedQuickplaySlots[1].Spell1 == 14UL && lcu.SavedQuickplaySlots[1].Spell2 == 4UL, "non-jungle quickplay slot defaults to ignite flash");
+}
+
+static void AssertQuickplaySpellSettingsOverrideSavedSlots()
+{
+    var lcu = new ModeAwareLcuClient(ModeAwareLcuClient.QuickplayLobby());
+    var viewModel = new MainViewModel(lcu, new LocalDiagnosticLog(), TempPreferences());
+    Thread.Sleep(100);
+
+    viewModel.OpenSettingsCommand.Execute(null);
+    viewModel.OverrideQuickplaySpells = true;
+    viewModel.SelectedQuickplaySpell1 = viewModel.SummonerSpellOptions.Single(spell => spell.Id == 6UL);
+    viewModel.SelectedQuickplaySpell2 = viewModel.SummonerSpellOptions.Single(spell => spell.Id == 4UL);
+    viewModel.SaveSettingsCommand.Execute(null);
+    viewModel.SaveQuickplaySlotsCommand.Execute(null);
+    Thread.Sleep(100);
+
+    Assert(!viewModel.IsSettingsOpen, "saving settings closes settings modal");
+    Assert(lcu.SavedQuickplaySlots?.Count == 2, "quickplay spell override saves slots");
+    Assert(lcu.SavedQuickplaySlots!.All(slot => slot.Spell1 == 6UL && slot.Spell2 == 4UL), "quickplay spell override replaces spells on every slot");
 }
 
 static void AssertCustomLobbyUsesModeCommand()
@@ -708,6 +783,7 @@ static void AssertLeaveLobbyCallsLcu()
     Thread.Sleep(100);
 
     Assert(lcu.LeftLobby, "leave lobby command calls LCU");
+    Assert(viewModel.IsHomeScreen, "leave lobby returns to home screen");
 }
 
 static void AssertCreateLobbyRefreshesSnapshotImmediately()
@@ -925,6 +1001,13 @@ sealed class ProfileLcuClient(bool rankedFails = false, bool hasLobby = true) : 
 
         return Task.FromResult<RankedSummary?>(new RankedSummary("RANKED_SOLO_5x5: GOLD II - 44 LP"));
     }
+
+    public Task<IReadOnlyList<MatchHistoryEntry>> GetMatchHistoryAsync(string puuid, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<MatchHistoryEntry>>(
+        [
+            new(103, "Champion 103", "Ranked Solo/Duo", true, 7, 2, 11, 184, 12400, 28600, 2, 14, 4, [6655, 3020, 4645], "31:05", "Recent", MatchHistoryTestData.ProfileMatchParticipants()),
+            new(64, "Champion 64", "Normal Draft", false, 3, 6, 8, 142, 9400, 15100, 1, 11, 4, [6630, 3047], "26:18", "Earlier")
+        ]);
 
     public Task SendFriendRequestAsync(LobbyMember member, CancellationToken cancellationToken)
     {
@@ -1144,4 +1227,21 @@ sealed class AramLcuClient(int localChampionId, int queueId = 450, string gameMo
     }
     public Task AcceptTradeAsync(int tradeId, CancellationToken cancellationToken) => Task.CompletedTask;
     public Task DeclineTradeAsync(int tradeId, CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
+static class MatchHistoryTestData
+{
+    public static IReadOnlyList<MatchParticipantPerformance> ProfileMatchParticipants() =>
+    [
+        new("local-puuid", "Local#NA1", 100, true, 103, "Champion 103", 7, 2, 11, 184, 12400, 28600, 2),
+        new("ally", "Ally", 100, true, 22, "Champion 22", 4, 4, 10, 160, 10300, 18000, 1),
+        new("enemy-carry", "Enemy#EUW", 200, false, 64, "Champion 64", 10, 5, 6, 210, 13800, 31200, 3),
+        new("enemy", "Enemy Support", 200, false, 16, "Champion 16", 1, 7, 18, 44, 7800, 9200, 1),
+        new("ally-2", "Ally 2", 100, true, 12, "Champion 12", 5, 5, 7, 120, 9200, 14500, 1),
+        new("ally-3", "Ally 3", 100, true, 25, "Champion 25", 2, 3, 14, 35, 8200, 10200, 1),
+        new("ally-4", "Ally 4", 100, true, 51, "Champion 51", 6, 6, 4, 175, 11000, 16800, 2),
+        new("enemy-2", "Enemy 2", 200, false, 99, "Champion 99", 4, 6, 9, 148, 9600, 17800, 1),
+        new("enemy-3", "Enemy 3", 200, false, 43, "Champion 43", 2, 4, 13, 28, 7600, 8100, 1),
+        new("enemy-4", "Enemy 4", 200, false, 67, "Champion 67", 3, 8, 5, 132, 8400, 12100, 1)
+    ];
 }

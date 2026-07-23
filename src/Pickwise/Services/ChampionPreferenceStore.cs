@@ -34,4 +34,7 @@ public sealed class ChampionPreferences
 {
     public List<int> Favorites { get; set; } = [];
     public List<int> QuickBans { get; set; } = [];
+    public bool OverrideQuickplaySpells { get; set; }
+    public ulong QuickplaySpell1 { get; set; } = 14;
+    public ulong QuickplaySpell2 { get; set; } = 4;
 }

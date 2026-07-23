@@ -15,10 +15,16 @@
     <Grid>
     <ScrollViewer>
         <StackPanel Margin="28" Spacing="18">
-            <StackPanel Spacing="4">
-                <TextBlock Text="Pickwise" FontSize="28" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding Status}" Foreground="#6b7280" />
-            </StackPanel>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Pickwise" FontSize="28" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Status}" Foreground="#6b7280" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="Settings"
+                        Command="{Binding OpenSettingsCommand}"
+                        VerticalAlignment="Top" />
+            </Grid>
 
             <StackPanel Spacing="18" IsVisible="{Binding IsHomeScreen}">
                 <Button Command="{Binding OpenCurrentSummonerProfileCommand}"
@@ -177,8 +183,6 @@
                         </ListBox>
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <Button Content="Create Lobby" Command="{Binding CreateLobbyCommand}" />
-                            <Button Content="Find Match" Command="{Binding StartMatchmakingCommand}" />
-                            <Button Content="Cancel Search" Command="{Binding CancelMatchmakingCommand}" />
                             <Button Content="Leave Lobby" Command="{Binding LeaveLobbyCommand}" />
                         </StackPanel>
                         <StackPanel Spacing="8" IsVisible="{Binding IsPositionSelectorVisible}">
@@ -299,6 +303,8 @@
                         <TextBlock Text="Ready Check" FontWeight="SemiBold" />
                         <TextBlock Text="{Binding ReadyCheck}" />
                         <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Find Match" Command="{Binding StartMatchmakingCommand}" />
+                            <Button Content="Cancel Search" Command="{Binding CancelMatchmakingCommand}" />
                             <Button Content="Accept" Command="{Binding AcceptCommand}" />
                             <Button Content="Decline" Command="{Binding DeclineCommand}" />
                         </StackPanel>
@@ -310,13 +316,186 @@
                 <Button Content="Back" Command="{Binding BackCommand}" HorizontalAlignment="Left" />
 
                 <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="16">
+                        <Grid ColumnDefinitions="96,*" ColumnSpacing="16">
+                            <Grid Width="80" Height="80" HorizontalAlignment="Center" VerticalAlignment="Top">
+                                <Image Source="{Binding SelectedProfile.IconImage}"
+                                       Width="80"
+                                       Height="80"
+                                       Stretch="UniformToFill"
+                                       IsVisible="{Binding SelectedProfile.HasIcon}" />
+                                <Border Background="White"
+                                        BorderBrush="#e5e7eb"
+                                        BorderThickness="1"
+                                        IsVisible="{Binding SelectedProfile.HasNoIcon}">
+                                    <TextBlock Text="?"
+                                               Foreground="#6b7280"
+                                               FontSize="28"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
+                            <StackPanel Grid.Column="1" Spacing="8">
+                                <TextBlock Text="{Binding SelectedProfile.Name}"
+                                           FontWeight="SemiBold"
+                                           FontSize="24"
+                                           Foreground="#111"
+                                           TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Border Background="White" BorderBrush="#e5e7eb" BorderThickness="1" CornerRadius="8" Padding="8,5">
+                                        <TextBlock Text="{Binding SelectedProfile.Level}" FontWeight="SemiBold" Foreground="#374151" />
+                                    </Border>
+                                    <Border Background="White" BorderBrush="#e5e7eb" BorderThickness="1" CornerRadius="8" Padding="8,5">
+                                        <TextBlock Text="{Binding SelectedProfile.Ranked}" FontWeight="SemiBold" Foreground="#374151" />
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <Border Background="White" BorderBrush="#e5e7eb" BorderThickness="1" CornerRadius="8" Padding="10">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Summoner" FontSize="12" Foreground="#6b7280" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding SelectedProfile.SummonerId}" Foreground="#374151" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Background="White" BorderBrush="#e5e7eb" BorderThickness="1" CornerRadius="8" Padding="10">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="PUUID" FontSize="12" Foreground="#6b7280" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding SelectedProfile.Puuid}" Foreground="#374151" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
                     <StackPanel Spacing="10">
-                        <TextBlock Text="{Binding SelectedProfile.Name}" FontWeight="SemiBold" FontSize="20" />
-                        <TextBlock Text="{Binding SelectedProfile.Level}" />
-                        <TextBlock Text="{Binding SelectedProfile.Icon}" />
-                        <TextBlock Text="{Binding SelectedProfile.SummonerId}" TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding SelectedProfile.Puuid}" TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding SelectedProfile.Ranked}" FontWeight="SemiBold" />
+                        <TextBlock Text="Match History" FontWeight="SemiBold" />
+                        <TextBlock Text="No recent matches"
+                                   Foreground="#6b7280"
+                                   IsVisible="{Binding HasNoProfileMatches}" />
+                        <ItemsControl ItemsSource="{Binding ProfileMatches}" IsVisible="{Binding HasProfileMatches}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ProfileMatchViewModel">
+                                    <Border Background="White"
+                                            BorderBrush="#e5e7eb"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Padding="10"
+                                            Margin="0,3">
+                                        <Grid RowDefinitions="Auto,Auto" RowSpacing="10">
+                                            <Button Command="{Binding #Root.DataContext.ToggleProfileMatchCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="0"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    HorizontalContentAlignment="Stretch">
+                                                <Grid ColumnDefinitions="42,*,Auto" ColumnSpacing="10">
+                                                    <Grid Width="36" Height="36">
+                                                        <Image Source="{Binding ChampionIcon}"
+                                                               Width="36"
+                                                               Height="36"
+                                                               Stretch="UniformToFill"
+                                                               IsVisible="{Binding HasChampionIcon}" />
+                                                        <Border Background="#f5f5f5"
+                                                                BorderBrush="#e5e7eb"
+                                                                BorderThickness="1"
+                                                                IsVisible="{Binding HasNoChampionIcon}">
+                                                            <TextBlock Text="?"
+                                                                       Foreground="#6b7280"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center" />
+                                                        </Border>
+                                                    </Grid>
+                                                    <StackPanel Grid.Column="1" Spacing="2">
+                                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                                            <TextBlock Text="{Binding Champion}" FontWeight="SemiBold" />
+                                                            <Border Background="#111"
+                                                                    CornerRadius="4"
+                                                                    Padding="5,2"
+                                                                    IsVisible="{Binding HasViewerAward}">
+                                                                <TextBlock Text="{Binding ViewerAward.Kind}"
+                                                                           Foreground="White"
+                                                                           FontSize="10"
+                                                                           FontWeight="SemiBold" />
+                                                            </Border>
+                                                        </StackPanel>
+                                                        <TextBlock Text="{Binding Queue}" FontSize="12" Foreground="#6b7280" TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2" Spacing="2" HorizontalAlignment="Right">
+                                                        <TextBlock Text="{Binding Result}" FontWeight="SemiBold" Foreground="#374151" TextAlignment="Right" />
+                                                        <TextBlock Text="{Binding Kda}" FontSize="12" Foreground="#374151" TextAlignment="Right" />
+                                                        <TextBlock Text="{Binding Duration}" FontSize="12" Foreground="#6b7280" TextAlignment="Right" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Button>
+                                            <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" IsVisible="{Binding IsExpanded}">
+                                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                                        <StackPanel Spacing="2">
+                                                            <TextBlock Text="Combat" FontSize="12" FontWeight="SemiBold" Foreground="#6b7280" />
+                                                            <TextBlock Text="{Binding ScoreLine}" FontSize="12" Foreground="#374151" />
+                                                            <TextBlock Text="{Binding CombatLine}" FontSize="12" Foreground="#374151" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right">
+                                                            <TextBlock Text="Economy" FontSize="12" FontWeight="SemiBold" Foreground="#6b7280" TextAlignment="Right" />
+                                                            <TextBlock Text="{Binding EconomyLine}" FontSize="12" Foreground="#374151" TextAlignment="Right" />
+                                                            <TextBlock Text="{Binding PlayedAt}" FontSize="12" Foreground="#6b7280" TextAlignment="Right" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                                        <StackPanel Spacing="4">
+                                                            <TextBlock Text="Spells" FontSize="12" FontWeight="SemiBold" Foreground="#6b7280" />
+                                                            <ItemsControl ItemsSource="{Binding Spells}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <StackPanel Orientation="Horizontal" Spacing="4" />
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate x:DataType="vm:MatchAssetViewModel">
+                                                                        <Grid Width="28" Height="28" ToolTip.Tip="{Binding Label}">
+                                                                            <Image Source="{Binding Icon}" Width="28" Height="28" Stretch="UniformToFill" IsVisible="{Binding HasIcon}" />
+                                                                            <Border Background="#f5f5f5" BorderBrush="#e5e7eb" BorderThickness="1" IsVisible="{Binding HasNoIcon}">
+                                                                                <TextBlock Text="{Binding Id}" FontSize="10" Foreground="#6b7280" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                            </Border>
+                                                                        </Grid>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" Spacing="4">
+                                                            <TextBlock Text="{Binding ItemsLine}" FontSize="12" FontWeight="SemiBold" Foreground="#6b7280" />
+                                                            <ItemsControl ItemsSource="{Binding Items}" IsVisible="{Binding HasItems}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <WrapPanel />
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate x:DataType="vm:MatchAssetViewModel">
+                                                                        <Grid Width="28" Height="28" Margin="0,0,4,4" ToolTip.Tip="{Binding Label}">
+                                                                            <Image Source="{Binding Icon}" Width="28" Height="28" Stretch="UniformToFill" IsVisible="{Binding HasIcon}" />
+                                                                            <Border Background="#f5f5f5" BorderBrush="#e5e7eb" BorderThickness="1" IsVisible="{Binding HasNoIcon}">
+                                                                                <TextBlock Text="{Binding Id}" FontSize="10" Foreground="#6b7280" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                            </Border>
+                                                                        </Grid>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <Button Grid.Row="2"
+                                                            Content="Chi tiet"
+                                                            Command="{Binding #Root.DataContext.OpenProfileMatchDetailCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            HorizontalAlignment="Left"
+                                                            IsVisible="{Binding HasAwards}" />
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -630,6 +809,7 @@
                 Padding="14"
                 Width="460"
                 MaxHeight="620"
+                ClipToBounds="True"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center">
             <Grid RowDefinitions="Auto,*" RowSpacing="12">
@@ -673,50 +853,64 @@
                                             <TextBlock Text="{Binding Champion}"
                                                        Foreground="#374151"
                                                        TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Position}"
-                                                       Foreground="#6b7280"
-                                                       FontWeight="SemiBold" />
+                                            <ComboBox ItemsSource="{Binding #Root.DataContext.PositionOptions}"
+                                                      SelectedItem="{Binding SelectedPosition}" />
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+                        <Button Content="Save"
+                                Command="{Binding SaveQuickplaySlotsCommand}" />
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Spacing="8">
-                        <ItemsControl ItemsSource="{Binding QuickplayPositionOptions}">
+                    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" RowSpacing="8">
+                        <ItemsControl ItemsSource="{Binding QuickplayChampionRoles}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <WrapPanel />
+                                    <StackPanel Orientation="Horizontal" Spacing="6" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:QuickplayPositionOptionViewModel">
-                                    <Button Content="{Binding Name}"
-                                            Command="{Binding #Root.DataContext.SelectQuickplayPositionCommand}"
+                                <DataTemplate x:DataType="vm:ChampionRoleOptionViewModel">
+                                    <Button Command="{Binding #Root.DataContext.SelectQuickplayChampionRoleCommand}"
                                             CommandParameter="{Binding}"
                                             Classes.selected="{Binding IsSelected}"
-                                            Margin="2"
-                                            Padding="8,4"
-                                            FontWeight="SemiBold">
+                                            ToolTip.Tip="{Binding Name}"
+                                            Width="32"
+                                            Height="34"
+                                            Padding="4,3,4,3">
+                                        <Grid RowDefinitions="*,5">
+                                            <Path Data="{Binding IconPath}"
+                                                  Width="18"
+                                                  Height="18"
+                                                  Stretch="Uniform"
+                                                  Fill="#374151"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center" />
+                                            <Border Height="2"
+                                                    Grid.Row="1"
+                                                    Background="#111"
+                                                    VerticalAlignment="Center"
+                                                    IsVisible="{Binding IsSelected}" />
+                                        </Grid>
                                         <Button.Styles>
                                             <Style Selector="Button">
                                                 <Setter Property="Background" Value="White" />
                                                 <Setter Property="BorderBrush" Value="#e5e7eb" />
-                                                <Setter Property="Foreground" Value="#374151" />
                                             </Style>
                                             <Style Selector="Button.selected">
-                                                <Setter Property="Background" Value="#111" />
-                                                <Setter Property="BorderBrush" Value="#111" />
-                                                <Setter Property="Foreground" Value="White" />
+                                                <Setter Property="Background" Value="White" />
+                                                <Setter Property="BorderBrush" Value="#e5e7eb" />
                                             </Style>
                                         </Button.Styles>
                                     </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBox Watermark="Search champion"
+                        <TextBox Grid.Row="1"
+                                 Watermark="Search champion"
                                  Text="{Binding QuickplaySearch}" />
-                        <ScrollViewer MaxHeight="500">
+                        <ScrollViewer Grid.Row="2">
                             <ItemsControl ItemsSource="{Binding QuickplayChampions}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -762,8 +956,201 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </Border>
+    <Border Background="#99000000"
+            IsVisible="{Binding IsSettingsOpen}">
+        <Border Background="White"
+                BorderBrush="#e5e7eb"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16"
+                Width="360"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+            <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <TextBlock Text="Settings"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Content="Close"
+                            Command="{Binding CloseSettingsCommand}" />
+                </Grid>
+                <CheckBox Content="Override Quickplay spells"
+                          IsChecked="{Binding OverrideQuickplaySpells}" />
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Spell 1"
+                                   FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding SummonerSpellOptions}"
+                                  SelectedItem="{Binding SelectedQuickplaySpell1}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SummonerSpellOptionViewModel">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Grid Width="24" Height="24">
+                                            <Image Source="{Binding Icon}"
+                                                   Width="24"
+                                                   Height="24"
+                                                   Stretch="UniformToFill"
+                                                   IsVisible="{Binding HasIcon}" />
+                                            <Border Background="#f5f5f5"
+                                                    BorderBrush="#e5e7eb"
+                                                    BorderThickness="1"
+                                                    IsVisible="{Binding HasNoIcon}">
+                                                <TextBlock Text="{Binding Id}"
+                                                           Foreground="#6b7280"
+                                                           FontSize="10"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+                                        </Grid>
+                                        <TextBlock Text="{Binding Name}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Text="Spell 2"
+                                   FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding SummonerSpellOptions}"
+                                  SelectedItem="{Binding SelectedQuickplaySpell2}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SummonerSpellOptionViewModel">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Grid Width="24" Height="24">
+                                            <Image Source="{Binding Icon}"
+                                                   Width="24"
+                                                   Height="24"
+                                                   Stretch="UniformToFill"
+                                                   IsVisible="{Binding HasIcon}" />
+                                            <Border Background="#f5f5f5"
+                                                    BorderBrush="#e5e7eb"
+                                                    BorderThickness="1"
+                                                    IsVisible="{Binding HasNoIcon}">
+                                                <TextBlock Text="{Binding Id}"
+                                                           Foreground="#6b7280"
+                                                           FontSize="10"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+                                        </Grid>
+                                        <TextBlock Text="{Binding Name}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </StackPanel>
                 </Grid>
+                <Button Content="Save"
+                        Command="{Binding SaveSettingsCommand}"
+                        HorizontalAlignment="Left" />
+            </StackPanel>
+        </Border>
+    </Border>
+    <Border Background="#99000000"
+            IsVisible="{Binding IsProfileMatchDetailOpen}">
+        <Border Background="White"
+                BorderBrush="#e5e7eb"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16"
+                Width="480"
+                MaxHeight="640"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+            <Grid RowDefinitions="Auto,*" RowSpacing="12">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="Match Detail"
+                                   FontSize="18"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding ProfileMatchDetail.Queue}"
+                                   FontSize="12"
+                                   Foreground="#6b7280" />
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Content="Close"
+                            Command="{Binding CloseProfileMatchDetailCommand}" />
+                </Grid>
+                <ScrollViewer Grid.Row="1">
+                    <ItemsControl ItemsSource="{Binding ProfileMatchDetail.Awards}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MatchAwardViewModel">
+                                <Border Background="#f5f5f5"
+                                        BorderBrush="#e5e7eb"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="10"
+                                        Margin="0,0,0,6">
+                                    <Grid ColumnDefinitions="58,*" ColumnSpacing="10">
+                                        <Border Background="#111"
+                                                CornerRadius="4"
+                                                Padding="5,3"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding Kind}"
+                                                       Foreground="White"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="3">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <TextBlock Text="{Binding PlayerName}"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Score}"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#374151" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding Champion}"
+                                                       FontSize="12"
+                                                       Foreground="#374151" />
+                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                                                <TextBlock Text="{Binding Team}"
+                                                           FontSize="12"
+                                                           Foreground="#6b7280" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Result}"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#374151" />
+                                                <TextBlock Text="{Binding Kda}"
+                                                           Grid.Column="2"
+                                                           FontSize="12"
+                                                           Foreground="#374151" />
+                                                <TextBlock Grid.Column="3"
+                                                           Text="{Binding Damage}"
+                                                           FontSize="12"
+                                                           Foreground="#6b7280" />
+                                            </Grid>
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <TextBlock
+                                                           Text="{Binding Economy}"
+                                                           FontSize="12"
+                                                           Foreground="#6b7280" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Reason}"
+                                                           FontSize="12"
+                                                           Foreground="#6b7280"
+                                                           TextAlignment="Right" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
             </Grid>
         </Border>
     </Border>

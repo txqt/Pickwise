@@ -16,6 +16,8 @@ public partial class MainViewModel : ViewModelBase
     private readonly ChampionIconCache _championIconCache;
     private readonly GameModeIconCache _gameModeIconCache;
     private readonly SummonerIconCache _summonerIconCache;
+    private readonly SummonerSpellIconCache _summonerSpellIconCache;
+    private readonly ItemIconCache _itemIconCache;
     private readonly ChampionPreferenceStore _preferenceStore;
     private readonly ChampionPreferences _preferences;
     private readonly IReadOnlyList<ChampionTileViewModel> _allChampionTiles;
@@ -82,6 +84,15 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private ProfilePanelViewModel? _selectedProfile;
 
+    [ObservableProperty]
+    private IReadOnlyList<ProfileMatchViewModel> _profileMatches = [];
+
+    [ObservableProperty]
+    private ProfileMatchViewModel? _selectedProfileMatch;
+
+    [ObservableProperty]
+    private ProfileMatchViewModel? _profileMatchDetail;
+
     public IReadOnlyList<ChampionRoleOptionViewModel> ChampionRoles { get; } =
     [
         Role("All", "M3,3 L11,3 L11,11 L3,11 Z M13,3 L21,3 L21,11 L13,11 Z M3,13 L11,13 L11,21 L3,21 Z M13,13 L21,13 L21,21 L13,21 Z"),
@@ -95,6 +106,20 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private ChampionRoleOptionViewModel _selectedChampionRole = null!;
+
+    public IReadOnlyList<ChampionRoleOptionViewModel> QuickplayChampionRoles { get; } =
+    [
+        Role("All", "M3,3 L11,3 L11,11 L3,11 Z M13,3 L21,3 L21,11 L13,11 Z M3,13 L11,13 L11,21 L3,21 Z M13,13 L21,13 L21,21 L13,21 Z"),
+        Role("Fighter", "M12,2 L15,9 L22,12 L15,15 L12,22 L9,15 L2,12 L9,9 Z"),
+        Role("Tank", "M12,2 L21,6 L19,17 L12,22 L5,17 L3,6 Z M8,9 L16,9 L16,15 L8,15 Z"),
+        Role("Mage", "M5,18 L18,5 L20,7 L7,20 Z M7,5 L19,17 L17,19 L5,7 Z M11,5 L14,5 L14,8 L11,8 Z M16,10 L19,10 L19,13 L16,13 Z"),
+        Role("Assassin", "M12,2 L16,10 L22,12 L16,14 L12,22 L8,14 L2,12 L8,10 Z M12,7 L10,12 L12,17 L14,12 Z"),
+        Role("Marksman", "M12,2 L15,9 L22,12 L15,15 L12,22 L9,15 L2,12 L9,9 Z M12,7 L12,17 M7,12 L17,12"),
+        Role("Support", "M12,3 L15,9 L21,9 L16,13 L18,20 L12,16 L6,20 L8,13 L3,9 L9,9 Z")
+    ];
+
+    [ObservableProperty]
+    private ChampionRoleOptionViewModel _selectedQuickplayChampionRole = null!;
 
     [ObservableProperty]
     private GameMode? _selectedGameMode;
@@ -159,10 +184,33 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private IReadOnlyList<ChampionTileViewModel> _quickplayChampions = [];
 
+    [ObservableProperty]
+    private bool _isSettingsOpen;
+
+    [ObservableProperty]
+    private bool _overrideQuickplaySpells;
+
+    [ObservableProperty]
+    private SummonerSpellOptionViewModel _selectedQuickplaySpell1 = null!;
+
+    [ObservableProperty]
+    private SummonerSpellOptionViewModel _selectedQuickplaySpell2 = null!;
+
     public IReadOnlyList<string> PositionOptions { get; } = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"];
-    public IReadOnlyList<QuickplayPositionOptionViewModel> QuickplayPositionOptions { get; } =
-        new[] { "TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY" }.Select(position => new QuickplayPositionOptionViewModel(position)).ToList();
     public IReadOnlyList<ChampionTileViewModel> QuickplayChampionOptions => _allChampionTiles;
+    public IReadOnlyList<SummonerSpellOptionViewModel> SummonerSpellOptions { get; } =
+    [
+        new("Cleanse", 1, "SummonerBoost.png"),
+        new("Exhaust", 3, "SummonerExhaust.png"),
+        new("Flash", 4, "SummonerFlash.png"),
+        new("Ghost", 6, "SummonerHaste.png"),
+        new("Heal", 7, "SummonerHeal.png"),
+        new("Smite", 11, "SummonerSmite.png"),
+        new("Teleport", 12, "SummonerTeleport.png"),
+        new("Clarity", 13, "SummonerMana.png"),
+        new("Ignite", 14, "SummonerDot.png"),
+        new("Barrier", 21, "SummonerBarrier.png")
+    ];
 
     public string LogPath => _log.Path;
     public string ChampionIconCachePath => ChampionIconCache.CacheDirectory;
@@ -185,6 +233,9 @@ public partial class MainViewModel : ViewModelBase
     public bool HasQuickBanChampions => QuickBanChampions.Count > 0;
     public bool HasTradeRequests => TradeRequests.Count > 0;
     public bool HasLobbyMembers => LobbyMembers.Count > 0;
+    public bool HasProfileMatches => ProfileMatches.Count > 0;
+    public bool HasNoProfileMatches => ProfileMatches.Count == 0;
+    public bool IsProfileMatchDetailOpen => ProfileMatchDetail is not null;
     public bool IsHomeScreen => Screen == "Home";
     public bool IsReadyScreen => Screen == "Ready";
     public bool IsChampionSelectScreen => Screen == "ChampionSelect";
@@ -199,6 +250,9 @@ public partial class MainViewModel : ViewModelBase
     public bool IsQuickplaySetupVisible => _currentLobbyState?.GameConfig?.ShowQuickPlaySlotSelection == true;
     public bool HasQuickplaySlots => QuickplaySlots.Count > 0;
     public bool IsQuickplayEditorOpen => ActiveQuickplaySlot is not null;
+    public bool CanSaveSettings => SelectedQuickplaySpell1 is not null
+        && SelectedQuickplaySpell2 is not null
+        && SelectedQuickplaySpell1.Id != SelectedQuickplaySpell2.Id;
     public bool CanSaveQuickplaySlots => IsQuickplaySetupVisible
         && QuickplaySlots.Count == 2
         && QuickplaySlots.All(slot => slot.SelectedChampionTile is not null && PositionOptions.Contains(slot.SelectedPosition));
@@ -211,15 +265,15 @@ public partial class MainViewModel : ViewModelBase
     {
     }
 
-    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log) : this(lcu, log, new ChampionCatalog(), new GameModeCatalog(), new ChampionIconCache(log), new GameModeIconCache(log), new SummonerIconCache(log), new ChampionPreferenceStore())
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log) : this(lcu, log, new ChampionCatalog(), new GameModeCatalog(), new ChampionIconCache(log), new GameModeIconCache(log), new SummonerIconCache(log), new SummonerSpellIconCache(log), new ItemIconCache(log), new ChampionPreferenceStore())
     {
     }
 
-    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionPreferenceStore preferenceStore) : this(lcu, log, new ChampionCatalog(), new GameModeCatalog(), new ChampionIconCache(log), new GameModeIconCache(log), new SummonerIconCache(log), preferenceStore)
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionPreferenceStore preferenceStore) : this(lcu, log, new ChampionCatalog(), new GameModeCatalog(), new ChampionIconCache(log), new GameModeIconCache(log), new SummonerIconCache(log), new SummonerSpellIconCache(log), new ItemIconCache(log), preferenceStore)
     {
     }
 
-    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionCatalog championCatalog, GameModeCatalog gameModeCatalog, ChampionIconCache championIconCache, GameModeIconCache gameModeIconCache, SummonerIconCache summonerIconCache, ChampionPreferenceStore preferenceStore)
+    public MainViewModel(ILcuClient lcu, LocalDiagnosticLog log, ChampionCatalog championCatalog, GameModeCatalog gameModeCatalog, ChampionIconCache championIconCache, GameModeIconCache gameModeIconCache, SummonerIconCache summonerIconCache, SummonerSpellIconCache summonerSpellIconCache, ItemIconCache itemIconCache, ChampionPreferenceStore preferenceStore)
     {
         _lcu = lcu;
         _log = log;
@@ -228,6 +282,8 @@ public partial class MainViewModel : ViewModelBase
         _championIconCache = championIconCache;
         _gameModeIconCache = gameModeIconCache;
         _summonerIconCache = summonerIconCache;
+        _summonerSpellIconCache = summonerSpellIconCache;
+        _itemIconCache = itemIconCache;
         _preferenceStore = preferenceStore;
         _preferences = _preferenceStore.Load();
         _allChampionTiles = _championCatalog.All.Select(champion => new ChampionTileViewModel(champion)).ToList();
@@ -236,12 +292,18 @@ public partial class MainViewModel : ViewModelBase
         Champions = _allChampionTiles;
         SelectedChampionRole = ChampionRoles[0];
         SelectedChampionRole.IsSelected = true;
+        SelectedQuickplayChampionRole = QuickplayChampionRoles[0];
+        SelectedQuickplayChampionRole.IsSelected = true;
+        OverrideQuickplaySpells = _preferences.OverrideQuickplaySpells;
+        SelectedQuickplaySpell1 = SpellOptionOrDefault(_preferences.QuickplaySpell1, 14);
+        SelectedQuickplaySpell2 = SpellOptionOrDefault(_preferences.QuickplaySpell2, 4);
         _allGameModes = _gameModeCatalog.All;
         RefreshModeGroups();
         RefreshGameModes();
         SelectedGameMode = GameModes.FirstOrDefault();
         _ = Task.Run(() => LoadGameModesAsync(_polling.Token));
         _ = Task.Run(() => LoadGameModeIconsAsync(_polling.Token));
+        _ = Task.Run(() => LoadSummonerSpellIconsAsync(_polling.Token));
         _ = Task.Run(() => LoadChampionIconsAsync(_polling.Token));
         _ = Task.Run(() => PollAsync(_polling.Token));
     }
@@ -254,6 +316,10 @@ public partial class MainViewModel : ViewModelBase
 
     private static ChampionRoleOptionViewModel Role(string name, string path) =>
         new(name, path);
+
+    private SummonerSpellOptionViewModel SpellOptionOrDefault(ulong spellId, ulong fallback) =>
+        SummonerSpellOptions.FirstOrDefault(spell => spell.Id == spellId)
+        ?? SummonerSpellOptions.First(spell => spell.Id == fallback);
 
     partial void OnPhaseChanged(AppPhase value)
     {
@@ -364,7 +430,6 @@ public partial class MainViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(IsQuickplayEditorOpen));
-        RefreshQuickplayPositionOptions();
         RefreshQuickplayChampions();
     }
 
@@ -376,6 +441,31 @@ public partial class MainViewModel : ViewModelBase
         }
 
         RefreshChampions();
+    }
+
+    partial void OnSelectedQuickplayChampionRoleChanged(ChampionRoleOptionViewModel value)
+    {
+        foreach (var role in QuickplayChampionRoles)
+        {
+            role.IsSelected = role == value;
+        }
+
+        RefreshQuickplayChampions();
+    }
+
+    partial void OnOverrideQuickplaySpellsChanged(bool value)
+    {
+        SaveSettingsCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSelectedQuickplaySpell1Changed(SummonerSpellOptionViewModel value)
+    {
+        SaveSettingsCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSelectedQuickplaySpell2Changed(SummonerSpellOptionViewModel value)
+    {
+        SaveSettingsCommand.NotifyCanExecuteChanged();
     }
 
     private void RefreshChampions()
@@ -434,6 +524,17 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasQuickplaySlots));
         OnPropertyChanged(nameof(CanSaveQuickplaySlots));
         SaveQuickplaySlotsCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnProfileMatchesChanged(IReadOnlyList<ProfileMatchViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasProfileMatches));
+        OnPropertyChanged(nameof(HasNoProfileMatches));
+    }
+
+    partial void OnProfileMatchDetailChanged(ProfileMatchViewModel? value)
+    {
+        OnPropertyChanged(nameof(IsProfileMatchDetailOpen));
     }
 
     partial void OnTradeRequestsChanged(IReadOnlyList<ChampionTradeRequest> value)
@@ -516,7 +617,21 @@ public partial class MainViewModel : ViewModelBase
     private Task CancelMatchmakingAsync() => RunCommandAsync(_lcu.CancelMatchmakingAsync, "Cancelled matchmaking", refreshSnapshot: true);
 
     [RelayCommand(CanExecute = nameof(CanLeaveLobby))]
-    private Task LeaveLobbyAsync() => RunCommandAsync(_lcu.LeaveLobbyAsync, "Left lobby", refreshSnapshot: true);
+    private async Task LeaveLobbyAsync()
+    {
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await _lcu.LeaveLobbyAsync(timeout.Token);
+            LastCommandResult = "Left lobby";
+            await RefreshSnapshotAsync();
+            Screen = "Home";
+        }
+        catch (Exception exception)
+        {
+            LastCommandResult = exception.Message;
+        }
+    }
 
     [RelayCommand]
     private void SelectModeGroup(string group)
@@ -563,6 +678,54 @@ public partial class MainViewModel : ViewModelBase
         RunCommandAsync(token => _lcu.SendFriendRequestAsync(member.Member, token), $"Sent friend request to {member.Name}");
 
     [RelayCommand]
+    private void ToggleProfileMatch(ProfileMatchViewModel match)
+    {
+        var shouldExpand = !match.IsExpanded;
+        foreach (var profileMatch in ProfileMatches)
+        {
+            profileMatch.IsExpanded = false;
+        }
+
+        match.IsExpanded = shouldExpand;
+        SelectedProfileMatch = shouldExpand ? match : null;
+    }
+
+    [RelayCommand]
+    private void OpenProfileMatchDetail(ProfileMatchViewModel match)
+    {
+        ProfileMatchDetail = match;
+    }
+
+    [RelayCommand]
+    private void CloseProfileMatchDetail()
+    {
+        ProfileMatchDetail = null;
+    }
+
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        IsSettingsOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseSettings()
+    {
+        IsSettingsOpen = false;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSaveSettings))]
+    private void SaveSettings()
+    {
+        _preferences.OverrideQuickplaySpells = OverrideQuickplaySpells;
+        _preferences.QuickplaySpell1 = SelectedQuickplaySpell1.Id;
+        _preferences.QuickplaySpell2 = SelectedQuickplaySpell2.Id;
+        _preferenceStore.Save(_preferences);
+        LastCommandResult = "Saved settings";
+        IsSettingsOpen = false;
+    }
+
+    [RelayCommand]
     private void OpenQuickplaySlot(QuickplaySlotViewModel slot)
     {
         ActiveQuickplaySlot = slot;
@@ -575,7 +738,7 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task SelectQuickplayChampionAsync(ChampionTileViewModel tile)
+    private void SelectQuickplayChampion(ChampionTileViewModel tile)
     {
         if (ActiveQuickplaySlot is null)
         {
@@ -583,20 +746,12 @@ public partial class MainViewModel : ViewModelBase
         }
 
         ActiveQuickplaySlot.SelectedChampionTile = tile;
-        await AutoSaveQuickplaySlotsAsync();
     }
 
     [RelayCommand]
-    private async Task SelectQuickplayPositionAsync(QuickplayPositionOptionViewModel option)
+    private void SelectQuickplayChampionRole(ChampionRoleOptionViewModel role)
     {
-        var position = option.Name;
-        if (ActiveQuickplaySlot is null || !PositionOptions.Contains(position))
-        {
-            return;
-        }
-
-        ActiveQuickplaySlot.SelectedPosition = position;
-        await AutoSaveQuickplaySlotsAsync();
+        SelectedQuickplayChampionRole = role;
     }
 
     [RelayCommand]
@@ -716,6 +871,28 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception)
         {
             _log.Error("Champion icon loading failed", exception);
+        }
+    }
+
+    private async Task LoadSummonerSpellIconsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            foreach (var spell in SummonerSpellOptions)
+            {
+                var icon = await _summonerSpellIconCache.LoadAsync(spell.ImageFileName, cancellationToken).ConfigureAwait(false);
+                if (icon is not null)
+                {
+                    Dispatcher.UIThread.Post(() => spell.Icon = icon);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Summoner spell icon loading failed", exception);
         }
     }
 
@@ -1065,19 +1242,7 @@ public partial class MainViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(CanSaveQuickplaySlots));
         SaveQuickplaySlotsCommand.NotifyCanExecuteChanged();
-        RefreshQuickplayPositionOptions();
         RefreshQuickplayChampions();
-    }
-
-    private Task AutoSaveQuickplaySlotsAsync() =>
-        CanSaveQuickplaySlots ? SaveQuickplaySlotsAsync() : Task.CompletedTask;
-
-    private void RefreshQuickplayPositionOptions()
-    {
-        foreach (var option in QuickplayPositionOptions)
-        {
-            option.IsSelected = ActiveQuickplaySlot is not null && option.Name == ActiveQuickplaySlot.SelectedPosition;
-        }
     }
 
     private void RefreshQuickplayChampions()
@@ -1091,6 +1256,7 @@ public partial class MainViewModel : ViewModelBase
         var query = QuickplaySearch.Trim().ToLowerInvariant();
         QuickplayChampions = _championCatalog.All
             .Where(champion => MatchesQuickplayLane(champion, ActiveQuickplaySlot.SelectedPosition))
+            .Where(champion => SelectedQuickplayChampionRole.Name == "All" || champion.Tags.Contains(SelectedQuickplayChampionRole.Name))
             .Where(champion => string.IsNullOrWhiteSpace(query) || champion.SearchText.Contains(query))
             .OrderBy(champion => champion.Name)
             .Select(champion => _championTilesById[champion.ChampionId])
@@ -1120,7 +1286,9 @@ public partial class MainViewModel : ViewModelBase
             && string.Equals(slot.SelectedPosition, slot.OriginalSlot.PositionPreference, StringComparison.OrdinalIgnoreCase);
         if (unchanged)
         {
-            return slot.OriginalSlot;
+            return OverrideQuickplaySpells
+                ? slot.OriginalSlot with { Spell1 = SelectedQuickplaySpell1.Id, Spell2 = SelectedQuickplaySpell2.Id }
+                : slot.OriginalSlot;
         }
 
         var perks = await _lcu.GetQuickplayPerksAsync(championId, slot.SelectedPosition, cancellationToken);
@@ -1134,9 +1302,17 @@ public partial class MainViewModel : ViewModelBase
             slot.SelectedPosition,
             championId * 1000,
             perks,
-            slot.SelectedPosition == "JUNGLE" ? 11UL : 14UL,
-            4);
+            QuickplaySpell1For(slot.SelectedPosition),
+            QuickplaySpell2For());
     }
+
+    private ulong QuickplaySpell1For(string position) =>
+        OverrideQuickplaySpells ? SelectedQuickplaySpell1.Id :
+        position == "JUNGLE" ? 11UL :
+        14UL;
+
+    private ulong QuickplaySpell2For() =>
+        OverrideQuickplaySpells ? SelectedQuickplaySpell2.Id : 4UL;
 
     private static string DescribeQuickplaySetup(LobbyMember? local, LobbyState lobby)
     {
@@ -1233,6 +1409,12 @@ public partial class MainViewModel : ViewModelBase
         if (snapshot.Lobby is not null || snapshot.LobbyMembers.Count > 0)
         {
             Screen = "Ready";
+            return;
+        }
+
+        if (Screen == "Ready")
+        {
+            Screen = "Home";
         }
     }
 
@@ -1244,7 +1426,11 @@ public partial class MainViewModel : ViewModelBase
         }
 
         SelectedProfile = ProfilePanelViewModel.From(profile, "Ranked unavailable");
+        ProfileMatches = [];
+        SelectedProfileMatch = null;
+        ProfileMatchDetail = null;
         Screen = "Profile";
+        _ = Task.Run(() => LoadSelectedProfileIconAsync(profile.ProfileIconId, _polling.Token));
 
         if (profile.SummonerId is not { } summonerId)
         {
@@ -1266,10 +1452,67 @@ public partial class MainViewModel : ViewModelBase
             }
 
             SelectedProfile = ProfilePanelViewModel.From(fetched, ranked?.Text ?? "Ranked unavailable");
+            _ = Task.Run(() => LoadSelectedProfileIconAsync(fetched.ProfileIconId, _polling.Token));
+            ProfileMatches = string.IsNullOrWhiteSpace(fetched.Puuid)
+                ? []
+                : (await _lcu.GetMatchHistoryAsync(fetched.Puuid, timeout.Token))
+                    .Select(entry => ProfileMatchViewModel.From(entry, _championTilesById, SummonerSpellOptions))
+                    .ToList();
+            if (ProfileMatches.Count > 0)
+            {
+                _ = Task.Run(() => LoadProfileMatchItemIconsAsync(ProfileMatches, _polling.Token));
+            }
         }
         catch (Exception exception)
         {
             _log.Error("Summoner profile lookup failed", exception);
+        }
+    }
+
+    private async Task LoadSelectedProfileIconAsync(int? iconId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var icon = await _summonerIconCache.LoadAsync(iconId, cancellationToken).ConfigureAwait(false);
+            if (icon is not null)
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (SelectedProfile is { } selected && selected.ProfileIconId == iconId)
+                    {
+                        SelectedProfile = selected with { IconImage = icon };
+                    }
+                });
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Profile icon loading failed", exception);
+        }
+    }
+
+    private async Task LoadProfileMatchItemIconsAsync(IReadOnlyList<ProfileMatchViewModel> matches, CancellationToken cancellationToken)
+    {
+        try
+        {
+            foreach (var item in matches.SelectMany(match => match.Items))
+            {
+                var icon = await _itemIconCache.LoadAsync(item.Id, cancellationToken).ConfigureAwait(false);
+                if (icon is not null)
+                {
+                    Dispatcher.UIThread.Post(() => item.Icon = icon);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Match item icon loading failed", exception);
         }
     }
 
@@ -1459,28 +1702,211 @@ public partial class QuickplaySlotViewModel : ViewModelBase
     }
 }
 
-public partial class QuickplayPositionOptionViewModel(string name) : ViewModelBase
+public partial class SummonerSpellOptionViewModel(string name, ulong id, string imageFileName) : ViewModelBase
 {
     public string Name { get; } = name;
+    public ulong Id { get; } = id;
+    public string ImageFileName { get; } = imageFileName;
+    public string Label => $"{Name} ({Id})";
+    public bool HasIcon => Icon is not null;
+    public bool HasNoIcon => Icon is null;
 
     [ObservableProperty]
-    private bool _isSelected;
+    [NotifyPropertyChangedFor(nameof(HasIcon))]
+    [NotifyPropertyChangedFor(nameof(HasNoIcon))]
+    private Bitmap? _icon;
 }
 
 public sealed record ProfilePanelViewModel(
     string Name,
     string Level,
-    string Icon,
+    int? ProfileIconId,
     string SummonerId,
     string Puuid,
-    string Ranked)
+    string Ranked,
+    Bitmap? IconImage = null)
 {
+    public bool HasIcon => IconImage is not null;
+    public bool HasNoIcon => IconImage is null;
+
     public static ProfilePanelViewModel From(SummonerProfile profile, string ranked) =>
         new(
             profile.Name,
             profile.SummonerLevel is null ? "Level unknown" : $"Level {profile.SummonerLevel}",
-            profile.ProfileIconId is null ? "Icon unknown" : $"Icon {profile.ProfileIconId}",
+            profile.ProfileIconId,
             profile.SummonerId is null ? "Summoner ID unavailable" : $"Summoner ID {profile.SummonerId}",
             string.IsNullOrWhiteSpace(profile.Puuid) ? "PUUID unavailable" : $"PUUID {profile.Puuid}",
             ranked);
+}
+
+public partial class ProfileMatchViewModel : ViewModelBase
+{
+    public ProfileMatchViewModel(
+        string champion,
+        Bitmap? championIcon,
+        string queue,
+        string result,
+        string kda,
+        string scoreLine,
+        string economyLine,
+        string combatLine,
+        IReadOnlyList<MatchAssetViewModel> spells,
+        IReadOnlyList<MatchAssetViewModel> items,
+        IReadOnlyList<MatchAwardViewModel> awards,
+        MatchAwardViewModel? viewerAward,
+        string duration,
+        string playedAt)
+    {
+        Champion = champion;
+        ChampionIcon = championIcon;
+        Queue = queue;
+        Result = result;
+        Kda = kda;
+        ScoreLine = scoreLine;
+        EconomyLine = economyLine;
+        CombatLine = combatLine;
+        Spells = spells;
+        Items = items;
+        Awards = awards;
+        ViewerAward = viewerAward;
+        Duration = duration;
+        PlayedAt = playedAt;
+    }
+
+    public string Champion { get; }
+    public Bitmap? ChampionIcon { get; }
+    public string Queue { get; }
+    public string Result { get; }
+    public string Kda { get; }
+    public string ScoreLine { get; }
+    public string EconomyLine { get; }
+    public string CombatLine { get; }
+    public IReadOnlyList<MatchAssetViewModel> Spells { get; }
+    public IReadOnlyList<MatchAssetViewModel> Items { get; }
+    public IReadOnlyList<MatchAwardViewModel> Awards { get; }
+    public MatchAwardViewModel? ViewerAward { get; }
+    public string Duration { get; }
+    public string PlayedAt { get; }
+    public bool HasChampionIcon => ChampionIcon is not null;
+    public bool HasNoChampionIcon => ChampionIcon is null;
+    public bool IsWin => Result == "Win";
+    public bool HasItems => Items.Count > 0;
+    public bool HasAwards => Awards.Count > 0;
+    public bool HasViewerAward => ViewerAward is not null;
+    public string ItemsLine => HasItems ? "Items" : "Items unavailable";
+    public string AwardsLine => HasAwards ? "Danh hieu tran" : "Danh hieu chua du";
+
+    [ObservableProperty]
+    private bool _isExpanded;
+
+    public static ProfileMatchViewModel From(MatchHistoryEntry entry, IReadOnlyDictionary<int, ChampionTileViewModel> champions, IReadOnlyList<SummonerSpellOptionViewModel> spellOptions)
+    {
+        var champion = champions.TryGetValue(entry.ChampionId, out var tile) ? tile : null;
+        var spells = new[]
+            {
+                SpellAsset(entry.Spell1Id, spellOptions),
+                SpellAsset(entry.Spell2Id, spellOptions)
+            }
+            .Where(asset => asset is not null)
+            .Select(asset => asset!)
+            .ToList();
+        var items = entry.ItemIds
+            .Select(itemId => new MatchAssetViewModel(itemId, $"Item {itemId}"))
+            .ToList();
+        var awards = MatchAwardScorer.Score(entry.Participants ?? [])
+            .Select(award => MatchAwardViewModel.From(award, champions))
+            .ToList();
+        var viewerKey = entry.Participants?
+            .FirstOrDefault(participant => participant.ChampionId == entry.ChampionId
+                && participant.Win == entry.Win
+                && participant.Kills == entry.Kills
+                && participant.Deaths == entry.Deaths
+                && participant.Assists == entry.Assists)
+            ?.PlayerKey;
+        var viewerAward = string.IsNullOrWhiteSpace(viewerKey)
+            ? null
+            : awards.FirstOrDefault(award => award.PlayerKey == viewerKey);
+
+        return new(
+            champion?.Name ?? entry.Champion,
+            champion?.Icon,
+            entry.Queue,
+            entry.Win ? "Win" : "Loss",
+            $"{entry.Kills}/{entry.Deaths}/{entry.Assists}",
+            $"KDA {KdaRatio(entry.Kills, entry.Deaths, entry.Assists)}",
+            $"CS {entry.CreepScore} · Gold {entry.GoldEarned:N0}",
+            $"Damage {entry.DamageDealt:N0} · Multi {entry.LargestMultiKill}",
+            spells,
+            items,
+            awards,
+            viewerAward,
+            entry.Duration,
+            entry.PlayedAt);
+    }
+
+    private static string KdaRatio(int kills, int deaths, int assists) =>
+        deaths == 0 ? "Perfect" : ((kills + assists) / (double)deaths).ToString("0.00");
+
+    private static MatchAssetViewModel? SpellAsset(int spellId, IReadOnlyList<SummonerSpellOptionViewModel> spellOptions)
+    {
+        if (spellId <= 0)
+        {
+            return null;
+        }
+
+        var spell = spellOptions.FirstOrDefault(option => option.Id == (ulong)spellId);
+        return spell is null
+            ? new MatchAssetViewModel(spellId, $"Spell {spellId}")
+            : new MatchAssetViewModel(spellId, spell.Name, spell.Icon);
+    }
+}
+
+public sealed record MatchAwardViewModel(
+    string Kind,
+    int Rank,
+    string PlayerKey,
+    string PlayerName,
+    string Champion,
+    string Team,
+    string Result,
+    string Kda,
+    string Economy,
+    string Damage,
+    int Score,
+    string Line,
+    string Reason)
+{
+    public static MatchAwardViewModel From(MatchAward award, IReadOnlyDictionary<int, ChampionTileViewModel> champions)
+    {
+        var champion = champions.TryGetValue(award.Player.ChampionId, out var tile)
+            ? tile.Name
+            : award.Player.Champion;
+        return new(
+            award.Kind,
+            award.Rank,
+            award.Player.PlayerKey,
+            award.Player.PlayerName,
+            champion,
+            $"Team {award.Player.TeamId}",
+            award.Player.Win ? "Win" : "Loss",
+            $"{award.Player.Kills}/{award.Player.Deaths}/{award.Player.Assists}",
+            $"CS {award.Player.CreepScore} - Gold {award.Player.GoldEarned:N0}",
+            $"Damage {award.Player.DamageDealt:N0}",
+            award.Score,
+            $"{award.Kind} - {award.Player.PlayerName}",
+            $"{champion} - Score {award.Score:N0} - {award.Reason}");
+    }
+}
+
+public partial class MatchAssetViewModel(int id, string label, Bitmap? icon = null) : ViewModelBase
+{
+    public int Id { get; } = id;
+    public string Label { get; } = label;
+    public bool HasIcon => Icon is not null;
+    public bool HasNoIcon => Icon is null;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasIcon))]
+    [NotifyPropertyChangedFor(nameof(HasNoIcon))]
+    private Bitmap? _icon = icon;
 }

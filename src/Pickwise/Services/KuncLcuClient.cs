@@ -103,6 +103,34 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
             : new RankedSummary($"{queue.QueueType}: {queue.Tier} {queue.Rank} - {queue.LeaguePoints ?? 0} LP");
     }
 
+    public async Task<IReadOnlyList<MatchHistoryEntry>> GetMatchHistoryAsync(string puuid, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(puuid))
+        {
+            return [];
+        }
+
+        var history = await GetOrNull<MatchHistoryResponse>($"lol-match-history/v1/products/lol/{Uri.EscapeDataString(puuid)}/matches?begIndex=0&endIndex=8", cancellationToken);
+        if (history?.Games?.Games is not { Count: > 0 } games)
+        {
+            return [];
+        }
+
+        var entries = new List<MatchHistoryEntry>(games.Count);
+        foreach (var game in games)
+        {
+            var detailed = game.Participants is { Count: > 1 } || game.GameId <= 0
+                ? game
+                : await GetOrNull<MatchHistoryGame>($"lol-match-history/v1/games/{game.GameId}", cancellationToken) ?? game;
+            if (ToMatchHistoryEntry(detailed, puuid) is { } entry)
+            {
+                entries.Add(entry);
+            }
+        }
+
+        return entries;
+    }
+
     public async Task SendFriendRequestAsync(LobbyMember member, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(member.GameName) || string.IsNullOrWhiteSpace(member.TagLine))
@@ -339,6 +367,87 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
             : $"Champion {type} declared by Player Command");
     }
 
+    private static MatchHistoryEntry? ToMatchHistoryEntry(MatchHistoryGame game, string puuid)
+    {
+        var namesByParticipantId = game.ParticipantIdentities?
+            .Where(identity => identity.Player is not null)
+            .ToDictionary(identity => identity.ParticipantId, identity => identity.Player!)
+            ?? [];
+        var participantId = game.ParticipantIdentities?
+            .FirstOrDefault(identity => string.Equals(identity.Player?.Puuid, puuid, StringComparison.OrdinalIgnoreCase))
+            ?.ParticipantId;
+        var participant = participantId is null
+            ? game.Participants?.FirstOrDefault()
+            : game.Participants?.FirstOrDefault(candidate => candidate.ParticipantId == participantId);
+        if (participant?.Stats is null)
+        {
+            return null;
+        }
+
+        var participants = game.Participants?
+            .Where(candidate => candidate.Stats is not null)
+            .Select(candidate => ToParticipantPerformance(candidate, namesByParticipantId.GetValueOrDefault(candidate.ParticipantId)))
+            .ToList()
+            ?? [];
+
+        return new(
+            participant.ChampionId,
+            $"Champion {participant.ChampionId}",
+            QueueLabel(game.QueueId),
+            participant.Stats.Win,
+            participant.Stats.Kills,
+            participant.Stats.Deaths,
+            participant.Stats.Assists,
+            participant.Stats.TotalMinionsKilled + participant.Stats.NeutralMinionsKilled,
+            participant.Stats.GoldEarned,
+            participant.Stats.TotalDamageDealtToChampions,
+            participant.Stats.LargestMultiKill,
+            participant.Spell1Id,
+            participant.Spell2Id,
+            new[] { participant.Stats.Item0, participant.Stats.Item1, participant.Stats.Item2, participant.Stats.Item3, participant.Stats.Item4, participant.Stats.Item5, participant.Stats.Item6 }
+                .Where(itemId => itemId > 0)
+                .ToList(),
+            TimeSpan.FromSeconds(game.GameDuration).ToString(@"m\:ss"),
+            string.IsNullOrWhiteSpace(game.GameCreationDate) ? "Recent" : game.GameCreationDate!,
+            participants);
+    }
+
+    private static MatchParticipantPerformance ToParticipantPerformance(MatchHistoryParticipant participant, MatchHistoryPlayer? player)
+    {
+        var stats = participant.Stats!;
+        return new(
+            string.IsNullOrWhiteSpace(player?.Puuid) ? $"participant:{participant.ParticipantId}" : player!.Puuid!,
+            PlayerName(player, participant.ParticipantId),
+            participant.TeamId,
+            stats.Win,
+            participant.ChampionId,
+            $"Champion {participant.ChampionId}",
+            stats.Kills,
+            stats.Deaths,
+            stats.Assists,
+            stats.TotalMinionsKilled + stats.NeutralMinionsKilled,
+            stats.GoldEarned,
+            stats.TotalDamageDealtToChampions,
+            stats.LargestMultiKill);
+    }
+
+    private static string PlayerName(MatchHistoryPlayer? player, int participantId) =>
+        !string.IsNullOrWhiteSpace(player?.GameName)
+            ? string.IsNullOrWhiteSpace(player.TagLine) ? player.GameName! : $"{player.GameName}#{player.TagLine}"
+            : player?.SummonerName ?? $"Player {participantId}";
+
+    private static string QueueLabel(int queueId) =>
+        queueId switch
+        {
+            400 => "Normal Draft",
+            420 => "Ranked Solo/Duo",
+            430 => "Blind Pick",
+            440 => "Ranked Flex",
+            450 => "ARAM",
+            480 => "Swiftplay",
+            _ => $"Queue {queueId}"
+        };
+
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.IsSuccessStatusCode)
@@ -413,6 +522,56 @@ public sealed record RankedQueue(
     [property: System.Text.Json.Serialization.JsonPropertyName("tier")] string? Tier,
     [property: System.Text.Json.Serialization.JsonPropertyName("rank")] string? Rank,
     [property: System.Text.Json.Serialization.JsonPropertyName("leaguePoints")] int? LeaguePoints);
+
+public sealed record MatchHistoryResponse(
+    [property: System.Text.Json.Serialization.JsonPropertyName("games")] MatchHistoryGames? Games);
+
+public sealed record MatchHistoryGames(
+    [property: System.Text.Json.Serialization.JsonPropertyName("games")] List<MatchHistoryGame>? Games);
+
+public sealed record MatchHistoryGame(
+    [property: System.Text.Json.Serialization.JsonPropertyName("gameId")] long GameId,
+    [property: System.Text.Json.Serialization.JsonPropertyName("gameCreationDate")] string? GameCreationDate,
+    [property: System.Text.Json.Serialization.JsonPropertyName("gameDuration")] int GameDuration,
+    [property: System.Text.Json.Serialization.JsonPropertyName("queueId")] int QueueId,
+    [property: System.Text.Json.Serialization.JsonPropertyName("participants")] List<MatchHistoryParticipant>? Participants,
+    [property: System.Text.Json.Serialization.JsonPropertyName("participantIdentities")] List<MatchHistoryParticipantIdentity>? ParticipantIdentities);
+
+public sealed record MatchHistoryParticipant(
+    [property: System.Text.Json.Serialization.JsonPropertyName("participantId")] int ParticipantId,
+    [property: System.Text.Json.Serialization.JsonPropertyName("teamId")] int TeamId,
+    [property: System.Text.Json.Serialization.JsonPropertyName("championId")] int ChampionId,
+    [property: System.Text.Json.Serialization.JsonPropertyName("spell1Id")] int Spell1Id,
+    [property: System.Text.Json.Serialization.JsonPropertyName("spell2Id")] int Spell2Id,
+    [property: System.Text.Json.Serialization.JsonPropertyName("stats")] MatchHistoryStats? Stats);
+
+public sealed record MatchHistoryStats(
+    [property: System.Text.Json.Serialization.JsonPropertyName("win")] bool Win,
+    [property: System.Text.Json.Serialization.JsonPropertyName("kills")] int Kills,
+    [property: System.Text.Json.Serialization.JsonPropertyName("deaths")] int Deaths,
+    [property: System.Text.Json.Serialization.JsonPropertyName("assists")] int Assists,
+    [property: System.Text.Json.Serialization.JsonPropertyName("totalMinionsKilled")] int TotalMinionsKilled,
+    [property: System.Text.Json.Serialization.JsonPropertyName("neutralMinionsKilled")] int NeutralMinionsKilled,
+    [property: System.Text.Json.Serialization.JsonPropertyName("goldEarned")] int GoldEarned,
+    [property: System.Text.Json.Serialization.JsonPropertyName("totalDamageDealtToChampions")] int TotalDamageDealtToChampions,
+    [property: System.Text.Json.Serialization.JsonPropertyName("largestMultiKill")] int LargestMultiKill,
+    [property: System.Text.Json.Serialization.JsonPropertyName("item0")] int Item0,
+    [property: System.Text.Json.Serialization.JsonPropertyName("item1")] int Item1,
+    [property: System.Text.Json.Serialization.JsonPropertyName("item2")] int Item2,
+    [property: System.Text.Json.Serialization.JsonPropertyName("item3")] int Item3,
+    [property: System.Text.Json.Serialization.JsonPropertyName("item4")] int Item4,
+    [property: System.Text.Json.Serialization.JsonPropertyName("item5")] int Item5,
+    [property: System.Text.Json.Serialization.JsonPropertyName("item6")] int Item6);
+
+public sealed record MatchHistoryParticipantIdentity(
+    [property: System.Text.Json.Serialization.JsonPropertyName("participantId")] int ParticipantId,
+    [property: System.Text.Json.Serialization.JsonPropertyName("player")] MatchHistoryPlayer? Player);
+
+public sealed record MatchHistoryPlayer(
+    [property: System.Text.Json.Serialization.JsonPropertyName("puuid")] string? Puuid,
+    [property: System.Text.Json.Serialization.JsonPropertyName("summonerName")] string? SummonerName,
+    [property: System.Text.Json.Serialization.JsonPropertyName("gameName")] string? GameName,
+    [property: System.Text.Json.Serialization.JsonPropertyName("tagLine")] string? TagLine);
 
 public sealed record LcuQueue(
     [property: System.Text.Json.Serialization.JsonPropertyName("id")] int Id,

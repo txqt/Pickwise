@@ -137,6 +137,84 @@ public sealed record SummonerProfile(
 
 public sealed record RankedSummary(string Text);
 
+public sealed record MatchHistoryEntry(
+    int ChampionId,
+    string Champion,
+    string Queue,
+    bool Win,
+    int Kills,
+    int Deaths,
+    int Assists,
+    int CreepScore,
+    int GoldEarned,
+    int DamageDealt,
+    int LargestMultiKill,
+    int Spell1Id,
+    int Spell2Id,
+    IReadOnlyList<int> ItemIds,
+    string Duration,
+    string PlayedAt,
+    IReadOnlyList<MatchParticipantPerformance>? Participants = null);
+
+public sealed record MatchParticipantPerformance(
+    string PlayerKey,
+    string PlayerName,
+    int TeamId,
+    bool Win,
+    int ChampionId,
+    string Champion,
+    int Kills,
+    int Deaths,
+    int Assists,
+    int CreepScore,
+    int GoldEarned,
+    int DamageDealt,
+    int LargestMultiKill);
+
+public sealed record MatchAward(
+    string Kind,
+    int Rank,
+    MatchParticipantPerformance Player,
+    int Score,
+    string Reason);
+
+public static class MatchAwardScorer
+{
+    public static IReadOnlyList<MatchAward> Score(IReadOnlyList<MatchParticipantPerformance> participants)
+    {
+        if (participants.Count < 2 || participants.Any(participant => participant.TeamId == 0))
+        {
+            return [];
+        }
+
+        return participants
+            .OrderByDescending(Score)
+            .ThenBy(participant => participant.Deaths)
+            .Select((participant, index) => Award(participant, index + 1))
+            .ToList();
+    }
+
+    private static MatchAward Award(MatchParticipantPerformance player, int rank)
+    {
+        var kind = rank switch
+        {
+            1 => "MVP",
+            2 => "SVP",
+            _ => $"Top {rank}"
+        };
+        return new MatchAward(kind, rank, player, Score(player), $"{player.Kills}/{player.Deaths}/{player.Assists} - {player.DamageDealt:N0} damage");
+    }
+
+    private static int Score(MatchParticipantPerformance player) =>
+        (player.Kills * 300)
+        + (player.Assists * 150)
+        + (player.DamageDealt / 100)
+        + (player.GoldEarned / 100)
+        + (player.CreepScore * 4)
+        + (player.LargestMultiKill * 250)
+        - (player.Deaths * 250);
+}
+
 public sealed record ReadyCheckState(
     [property: JsonPropertyName("state")] string? State,
     [property: JsonPropertyName("playerResponse")] string? PlayerResponse)

@@ -8,6 +8,7 @@ public interface ILcuClient
     Task<IReadOnlyList<GameMode>> GetQueuesAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<GameMode>>([]);
     Task<SummonerProfile?> GetSummonerProfileAsync(long summonerId, CancellationToken cancellationToken);
     Task<RankedSummary?> GetRankedSummaryAsync(long summonerId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<MatchHistoryEntry>> GetMatchHistoryAsync(string puuid, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<MatchHistoryEntry>>([]);
     Task SendFriendRequestAsync(LobbyMember member, CancellationToken cancellationToken);
     Task AcceptReadyCheckAsync(CancellationToken cancellationToken);
     Task DeclineReadyCheckAsync(CancellationToken cancellationToken);

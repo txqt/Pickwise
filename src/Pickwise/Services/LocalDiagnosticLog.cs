@@ -10,9 +10,21 @@ public sealed class LocalDiagnosticLog
     public string Path => System.IO.Path.Combine(_directory, "diagnostic.log");
     public string CrashPath => System.IO.Path.Combine(_directory, "crash.log");
 
-    public void Info(string message) => Write("INFO", message);
+    public void Info(string message)
+    {
+        if (!IsInfoEnabled(Environment.GetEnvironmentVariable("PICKWISE_DIAGNOSTIC_INFO")))
+        {
+            return;
+        }
+
+        Write("INFO", message);
+    }
+
     public void Error(string message, Exception exception) => Write("ERROR", $"{message}{Environment.NewLine}{exception}");
     public void Crash(string message, Exception exception) => Write(CrashPath, "CRASH", $"{message}{Environment.NewLine}{exception}");
+
+    public static bool IsInfoEnabled(string? value) =>
+        string.Equals(value, "1", StringComparison.OrdinalIgnoreCase);
 
     private void Write(string level, string message) => Write(Path, level, message);
 

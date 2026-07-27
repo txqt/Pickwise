@@ -107,6 +107,8 @@ https://github.com/txqt/Pickwise/releases
 %LOCALAPPDATA%\Pickwise\crash.log
 ```
 
+Pickwise writes error and crash logs by default. Set `PICKWISE_DIAGNOSTIC_INFO=1` before starting the app to include verbose diagnostic info logs.
+
 Champion icons are cached under:
 
 ```text

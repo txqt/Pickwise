@@ -69,6 +69,7 @@ AssertSwiftplayRestrictionBlocksMatchmaking();
 AssertBlankLobbyMemberNameCanUseProfileData();
 AssertPollingPolicyUsesScreenAndPhase();
 AssertReadyCheckAlertTransitionsDoNotSpam();
+AssertDiagnosticInfoLoggingIsOptIn();
 AssertLobbyRowsAreReused();
 AssertLobbyRowsUpdateInPlace();
 AssertSummonerIconLoadsAreDeduped();
@@ -658,6 +659,13 @@ static void AssertReadyCheckAlertTransitionsDoNotSpam()
     Assert(!App.ShouldClearReadyCheckAlert(AppPhase.ChampionSelect, AppPhase.ChampionSelect), "non-ready transitions do not clear alert repeatedly");
 }
 
+static void AssertDiagnosticInfoLoggingIsOptIn()
+{
+    Assert(!LocalDiagnosticLog.IsInfoEnabled(null), "diagnostic info logging defaults off");
+    Assert(!LocalDiagnosticLog.IsInfoEnabled("true"), "diagnostic info logging only accepts explicit opt-in");
+    Assert(LocalDiagnosticLog.IsInfoEnabled("1"), "diagnostic info logging accepts env opt-in");
+}
+
 static void AssertLobbyRowsAreReused()
 {
     var viewModel = new MainViewModel(new SlowLcuClient(), new LocalDiagnosticLog(), TempPreferences());
@@ -743,7 +751,7 @@ static void AssertLanePreferencesCanBeSaved()
 static void AssertQuickplaySetupIsDetectOnly()
 {
     var viewModel = new MainViewModel(new ModeAwareLcuClient(ModeAwareLcuClient.QuickplayLobby()), new LocalDiagnosticLog(), TempPreferences());
-    Thread.Sleep(100);
+    WaitUntil(() => viewModel.IsQuickplaySetupVisible, "quickplay lobby shows setup status");
 
     Assert(viewModel.IsQuickplaySetupVisible, "quickplay lobby shows setup status");
     Assert(viewModel.HasGameModeSetup, "quickplay lobby shows generated setup");
@@ -772,7 +780,7 @@ static void AssertGameModeSetupUsesWhitelistedCommands()
 static void AssertQuickplayEditorSurvivesUnchangedPoll()
 {
     var viewModel = new MainViewModel(new ModeAwareLcuClient(ModeAwareLcuClient.QuickplayLobby()), new LocalDiagnosticLog(), TempPreferences());
-    Thread.Sleep(100);
+    WaitUntil(() => viewModel.QuickplaySlots.Count == 2, "quickplay slots load before editing");
 
     var slot = viewModel.QuickplaySlots[1];
     slot.SelectedChampionTile = viewModel.QuickplayChampionOptions.Single(champion => champion.Champion.ChampionId == 103);
@@ -788,7 +796,7 @@ static void AssertQuickplayEditorFiltersByActiveLane()
 {
     var lcu = new ModeAwareLcuClient(ModeAwareLcuClient.QuickplayLobby());
     var viewModel = new MainViewModel(lcu, new LocalDiagnosticLog(), TempPreferences());
-    Thread.Sleep(100);
+    WaitUntil(() => viewModel.QuickplaySlots.Count == 2, "quickplay slots load before opening editor");
 
     var slot = viewModel.QuickplaySlots[1];
     viewModel.OpenQuickplaySlotCommand.Execute(slot);
@@ -813,7 +821,7 @@ static void AssertQuickplaySlotsCanBeSavedWithRecommendedRunes()
 {
     var lcu = new ModeAwareLcuClient(ModeAwareLcuClient.QuickplayLobby());
     var viewModel = new MainViewModel(lcu, new LocalDiagnosticLog(), TempPreferences());
-    Thread.Sleep(100);
+    WaitUntil(() => viewModel.QuickplaySlots.Count == 2, "quickplay slots load before saving");
 
     viewModel.QuickplaySlots[0].SelectedChampionTile = viewModel.QuickplayChampionOptions.Single(champion => champion.Champion.ChampionId == 64);
     viewModel.QuickplaySlots[0].SelectedPosition = "JUNGLE";
@@ -837,7 +845,7 @@ static void AssertQuickplaySpellSettingsOverrideSavedSlots()
 {
     var lcu = new ModeAwareLcuClient(ModeAwareLcuClient.QuickplayLobby());
     var viewModel = new MainViewModel(lcu, new LocalDiagnosticLog(), TempPreferences());
-    Thread.Sleep(100);
+    WaitUntil(() => viewModel.QuickplaySlots.Count == 2, "quickplay slots load before spell settings save");
 
     viewModel.OpenSettingsCommand.Execute(null);
     viewModel.OverrideQuickplaySpells = true;

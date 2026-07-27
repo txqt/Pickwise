@@ -10,6 +10,7 @@ Pickwise is a local Windows desktop companion for League of Legends. It connects
 - Starts or cancels matchmaking only from explicit player clicks.
 - Shows Ready Check state.
 - Lets the player click Accept or Decline.
+- Plays a Windows sound and raises the app window/title/tray state when Ready Check appears.
 - Shows Champion Select state.
 - Lets the player filter by role, search a champion, and click Pick or Ban.
 - Shows the current summoner profile, recent match history, match detail, and local match awards from LCU data.
@@ -119,7 +120,7 @@ Champion icons are cached under:
 - ARAM Mayhem is a temporary queue and may be unavailable outside Riot's rollout.
 - Riot Web API fallback features are not implemented yet.
 - No installer is included yet; use the publish folder for test builds.
-- No Windows toast or sound alert yet; ready-check alert uses the app window/title and tray tooltip where tray is available.
+- No Windows toast notification yet; ready-check alert uses sound, the app window/title, and tray tooltip where tray is available.
 
 ## Riot compliance notes
 

@@ -1,4 +1,5 @@
 using Avalonia.Media.Imaging;
+using Pickwise;
 using Pickwise.Models;
 using Pickwise.Services;
 using Pickwise.ViewModels;
@@ -67,6 +68,7 @@ AssertStableAramMayhemAugmentsDoNotReplaceRows();
 AssertSwiftplayRestrictionBlocksMatchmaking();
 AssertBlankLobbyMemberNameCanUseProfileData();
 AssertPollingPolicyUsesScreenAndPhase();
+AssertReadyCheckAlertTransitionsDoNotSpam();
 AssertLobbyRowsAreReused();
 AssertLobbyRowsUpdateInPlace();
 AssertSummonerIconLoadsAreDeduped();
@@ -646,6 +648,14 @@ static void AssertPollingPolicyUsesScreenAndPhase()
     Assert(MainViewModel.PollingDelayFor(AppPhase.ReadyCheck, "Profile", true) == TimeSpan.FromSeconds(1), "profile over ready check keeps urgent polling");
     Assert(MainViewModel.PollingDelayFor(AppPhase.ChampionSelect, "Profile", true) == TimeSpan.FromSeconds(1), "profile over champion select keeps urgent polling");
     Assert(MainViewModel.PollingDelayFor(AppPhase.Connected, "Profile", true) == TimeSpan.FromSeconds(8), "profile over non-urgent phase polls every 8s");
+}
+
+static void AssertReadyCheckAlertTransitionsDoNotSpam()
+{
+    Assert(App.ShouldShowReadyCheckAlert(AppPhase.Connected, AppPhase.ReadyCheck), "entering ready check triggers alert");
+    Assert(!App.ShouldShowReadyCheckAlert(AppPhase.ReadyCheck, AppPhase.ReadyCheck), "polling during ready check does not repeat alert");
+    Assert(App.ShouldClearReadyCheckAlert(AppPhase.ReadyCheck, AppPhase.ChampionSelect), "leaving ready check clears alert");
+    Assert(!App.ShouldClearReadyCheckAlert(AppPhase.ChampionSelect, AppPhase.ChampionSelect), "non-ready transitions do not clear alert repeatedly");
 }
 
 static void AssertLobbyRowsAreReused()

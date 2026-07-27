@@ -6,6 +6,7 @@ using Pickwise.Models;
 using Pickwise.Services;
 using Pickwise.ViewModels;
 using Pickwise.Views;
+using System.Runtime.InteropServices;
 
 namespace Pickwise;
 
@@ -34,7 +35,7 @@ public partial class App : Application
             };
             desktop.MainWindow = _mainWindow;
             SetupTray(desktop, log);
-            SetupReadyCheckAlert(viewModel);
+            SetupReadyCheckAlert(viewModel, log);
             desktop.Exit += (_, _) => _trayIcon?.Dispose();
         }
 
@@ -82,7 +83,7 @@ public partial class App : Application
         }
     }
 
-    private void SetupReadyCheckAlert(MainViewModel viewModel)
+    private void SetupReadyCheckAlert(MainViewModel viewModel, LocalDiagnosticLog log)
     {
         viewModel.PropertyChanged += (_, e) =>
         {
@@ -91,18 +92,42 @@ public partial class App : Application
                 return;
             }
 
-            if (viewModel.Phase == AppPhase.ReadyCheck && _lastPhase != AppPhase.ReadyCheck)
+            if (ShouldShowReadyCheckAlert(_lastPhase, viewModel.Phase))
             {
                 SetAlertState(true);
+                PlayReadyCheckSound(log);
                 ShowMainWindow();
             }
-            else if (viewModel.Phase != AppPhase.ReadyCheck && _lastPhase == AppPhase.ReadyCheck)
+            else if (ShouldClearReadyCheckAlert(_lastPhase, viewModel.Phase))
             {
                 SetAlertState(false);
             }
 
             _lastPhase = viewModel.Phase;
         };
+    }
+
+    public static bool ShouldShowReadyCheckAlert(AppPhase lastPhase, AppPhase currentPhase) =>
+        currentPhase == AppPhase.ReadyCheck && lastPhase != AppPhase.ReadyCheck;
+
+    public static bool ShouldClearReadyCheckAlert(AppPhase lastPhase, AppPhase currentPhase) =>
+        currentPhase != AppPhase.ReadyCheck && lastPhase == AppPhase.ReadyCheck;
+
+    private static void PlayReadyCheckSound(LocalDiagnosticLog log)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        try
+        {
+            _ = MessageBeep(0x00000030);
+        }
+        catch (Exception exception)
+        {
+            log.Error("Ready Check sound failed", exception);
+        }
     }
 
     private void SetAlertState(bool matchFound)
@@ -130,4 +155,7 @@ public partial class App : Application
         _mainWindow.WindowState = WindowState.Normal;
         _mainWindow.Activate();
     }
+
+    [DllImport("user32.dll")]
+    private static extern bool MessageBeep(uint type);
 }

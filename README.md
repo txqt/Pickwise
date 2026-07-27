@@ -10,8 +10,12 @@ Pickwise is a local Windows desktop companion for League of Legends. It connects
 - Starts or cancels matchmaking only from explicit player clicks.
 - Shows Ready Check state.
 - Lets the player click Accept or Decline.
+- Plays a Windows sound and raises the app window/title/tray state when Ready Check appears.
 - Shows Champion Select state.
 - Lets the player filter by role, search a champion, and click Pick or Ban.
+- Shows the current summoner profile, recent match history, match detail, and local match awards from LCU data.
+- Shows Active Game state from local Live Client Data when available.
+- Shows ARAM Mayhem champion and augment pickrate samples from the current summoner's recent matches.
 - Shows cached Data Dragon champion icons when available; missing icons do not block app actions.
 - Stays available from the system tray where supported; closing the window hides it, tray Exit quits it.
 - Writes local diagnostic and crash logs.
@@ -32,7 +36,7 @@ Copy the example env file and add your Riot API key:
 Copy-Item .env.example .env
 ```
 
-The current MVP uses the local League Client API. `RIOT_API_KEY` is reserved for later Riot Web API features such as match history.
+The current MVP uses the local League Client API. `RIOT_API_KEY` is reserved for later Riot Web API fallback features.
 
 ## Run
 
@@ -114,9 +118,9 @@ Champion icons are cached under:
 - Windows is the only tested target.
 - Champion icons are best-effort Data Dragon assets; missing icons show placeholders.
 - ARAM Mayhem is a temporary queue and may be unavailable outside Riot's rollout.
-- Riot Web API features such as match history are not implemented yet.
+- Riot Web API fallback features are not implemented yet.
 - No installer is included yet; use the publish folder for test builds.
-- No Windows toast or sound alert yet; ready-check alert uses the app window/title and tray tooltip where tray is available.
+- No Windows toast notification yet; ready-check alert uses sound, the app window/title, and tray tooltip where tray is available.
 
 ## Riot compliance notes
 

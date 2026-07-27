@@ -1,4 +1,4 @@
-# Pickwise MVP Plan
+# Pickwise MVP Status
 
 ## Scope
 
@@ -11,19 +11,22 @@
 - Current Summoner detection.
 - Ready Check detection with explicit Accept/Decline Player Commands.
 - Champion Select Session detection with explicit Pick/Ban Player Commands.
+- Active Game view from local Live Client Data.
+- Match History, Match Detail, and local Match Awards from LCU data.
+- ARAM Mayhem champion and augment pickrate samples from completed match history.
 - Local Diagnostic Log.
-- Endpoint compliance notes before public release.
+- Endpoint compliance notes.
 
 ## Deferred
 
 - In-game overlay.
 - Auto accept, auto pick, auto ban.
 - Meta, build, rune, and counter-pick features.
-- Match History and stats.
+- Riot Web API fallback features.
 - Backend, cloud sync, telemetry.
 - Multi-game support.
 
-## Implementation order
+## Initial implementation order
 
 1. Avalonia shell: single State View + tray.
 2. League Client discovery: process/lockfile.

@@ -2,10 +2,12 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 using Pickwise.Models;
 using Pickwise.Services;
 using Pickwise.ViewModels;
 using Pickwise.Views;
+using System.Runtime.InteropServices;
 
 namespace Pickwise;
 
@@ -34,7 +36,7 @@ public partial class App : Application
             };
             desktop.MainWindow = _mainWindow;
             SetupTray(desktop, log);
-            SetupReadyCheckAlert(viewModel);
+            SetupReadyCheckAlert(viewModel, log);
             desktop.Exit += (_, _) => _trayIcon?.Dispose();
         }
 
@@ -82,7 +84,7 @@ public partial class App : Application
         }
     }
 
-    private void SetupReadyCheckAlert(MainViewModel viewModel)
+    private void SetupReadyCheckAlert(MainViewModel viewModel, LocalDiagnosticLog log)
     {
         viewModel.PropertyChanged += (_, e) =>
         {
@@ -91,18 +93,44 @@ public partial class App : Application
                 return;
             }
 
-            if (viewModel.Phase == AppPhase.ReadyCheck && _lastPhase != AppPhase.ReadyCheck)
+            if (ShouldShowReadyCheckAlert(_lastPhase, viewModel.Phase))
             {
                 SetAlertState(true);
+                PlayReadyCheckSound(log);
                 ShowMainWindow();
+                FlashMainWindow();
             }
-            else if (viewModel.Phase != AppPhase.ReadyCheck && _lastPhase == AppPhase.ReadyCheck)
+            else if (ShouldClearReadyCheckAlert(_lastPhase, viewModel.Phase))
             {
                 SetAlertState(false);
             }
 
             _lastPhase = viewModel.Phase;
         };
+    }
+
+    public static bool ShouldShowReadyCheckAlert(AppPhase lastPhase, AppPhase currentPhase) =>
+        currentPhase == AppPhase.ReadyCheck && lastPhase != AppPhase.ReadyCheck;
+
+    public static bool ShouldClearReadyCheckAlert(AppPhase lastPhase, AppPhase currentPhase) =>
+        currentPhase != AppPhase.ReadyCheck && lastPhase == AppPhase.ReadyCheck;
+
+    private static void PlayReadyCheckSound(LocalDiagnosticLog log)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        try
+        {
+            Console.Beep(1200, 700);
+        }
+        catch (Exception exception)
+        {
+            log.Error("Ready Check beep failed", exception);
+            _ = MessageBeep(0xFFFFFFFF);
+        }
     }
 
     private void SetAlertState(bool matchFound)
@@ -129,5 +157,41 @@ public partial class App : Application
         _mainWindow.Show();
         _mainWindow.WindowState = WindowState.Normal;
         _mainWindow.Activate();
+    }
+
+    private void FlashMainWindow()
+    {
+        if (!OperatingSystem.IsWindows() || _mainWindow?.TryGetPlatformHandle() is not IPlatformHandle handle)
+        {
+            return;
+        }
+
+        var info = new FlashWindowInfo
+        {
+            Size = (uint)Marshal.SizeOf<FlashWindowInfo>(),
+            Window = handle.Handle,
+            Flags = FlashAll | FlashTimerNoForeground,
+            Count = 5,
+            Timeout = 0,
+        };
+        _ = FlashWindowEx(ref info);
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool MessageBeep(uint type);
+
+    [DllImport("user32.dll")]
+    private static extern bool FlashWindowEx(ref FlashWindowInfo info);
+
+    private const uint FlashAll = 0x00000003;
+    private const uint FlashTimerNoForeground = 0x0000000C;
+
+    private struct FlashWindowInfo
+    {
+        public uint Size;
+        public IntPtr Window;
+        public uint Flags;
+        public uint Count;
+        public uint Timeout;
     }
 }

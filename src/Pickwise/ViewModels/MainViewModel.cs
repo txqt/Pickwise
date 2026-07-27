@@ -18,6 +18,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly SummonerIconCache _summonerIconCache;
     private readonly SummonerSpellIconCache _summonerSpellIconCache;
     private readonly ItemIconCache _itemIconCache;
+    private readonly AramMayhemAugmentIconCache _aramMayhemAugmentIconCache;
     private readonly ChampionPreferenceStore _preferenceStore;
     private readonly ChampionPreferences _preferences;
     private readonly IReadOnlyList<ChampionTileViewModel> _allChampionTiles;
@@ -29,12 +30,19 @@ public partial class MainViewModel : ViewModelBase
     private CurrentSummoner? _currentSummoner;
     private LobbyState? _currentLobbyState;
     private string _profileBackScreen = "Home";
+    private AppPhase _lastAutoOpenedPhase = AppPhase.WaitingForLeagueClient;
     private IReadOnlySet<int> _pickableChampionIds = new HashSet<int>();
     private IReadOnlySet<int> _disabledChampionIds = new HashSet<int>();
     private IReadOnlySet<int> _allyHoveredChampionIds = new HashSet<int>();
     private bool _suppressDeclare;
     private bool _hydratingPositions;
     private bool _positionEditDirty;
+    private IReadOnlyList<MatchHistoryEntry> _currentSummonerMatchSample = [];
+    private string? _currentSummonerMatchSamplePuuid;
+    private bool _currentSummonerMatchSampleLoading;
+    private bool _aramMayhemAugmentCatalogLoading;
+    private bool _aramMayhemAugmentCatalogLoadAttempted;
+    private int _currentChampionSelectChampionId;
 
     [ObservableProperty]
     private AppPhase _phase = AppPhase.WaitingForLeagueClient;
@@ -50,6 +58,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _championSelect = "Not in champion select";
+
+    [ObservableProperty]
+    private string _activeGame = "No active game";
 
     [ObservableProperty]
     private string _championSearch = "";
@@ -86,6 +97,54 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private IReadOnlyList<ProfileMatchViewModel> _profileMatches = [];
+
+    [ObservableProperty]
+    private IReadOnlyList<AramMayhemAugmentSampleViewModel> _aramMayhemAugmentStats = [];
+
+    [ObservableProperty]
+    private string _aramMayhemAugmentTitle = "Popular ARAM Mayhem Augments";
+
+    [ObservableProperty]
+    private IReadOnlyList<AramMayhemChampionSampleViewModel> _aramMayhemChampionSamples = [];
+
+    [ObservableProperty]
+    private AramMayhemChampionSampleViewModel? _selectedAramMayhemChampionSample;
+
+    [ObservableProperty]
+    private IReadOnlyList<AramMayhemAugmentSampleViewModel> _aramMayhemLobbyAugmentStats = [];
+
+    [ObservableProperty]
+    private string _aramMayhemLobbyAugmentTitle = "Popular ARAM Mayhem Augments";
+
+    [ObservableProperty]
+    private string _selectedHomeTab = "Current Summoner";
+
+    [ObservableProperty]
+    private IReadOnlyList<AramMayhemGlobalChampionViewModel> _aramMayhemGlobalChampionStats = [];
+
+    [ObservableProperty]
+    private AramMayhemGlobalChampionViewModel? _selectedAramMayhemGlobalChampion;
+
+    [ObservableProperty]
+    private IReadOnlyList<AramMayhemAugmentSampleViewModel> _aramMayhemGlobalAugmentStats = [];
+
+    [ObservableProperty]
+    private string _aramMayhemGlobalAugmentTitle = "ARAM Mayhem Augments";
+
+    [ObservableProperty]
+    private string _selectedAramMayhemLobbySegment = "Champion Pool";
+
+    [ObservableProperty]
+    private IReadOnlyList<ActiveGamePlayerViewModel> _activeGameTeammates = [];
+
+    [ObservableProperty]
+    private IReadOnlyList<ActiveGamePlayerViewModel> _activeGameEnemies = [];
+
+    [ObservableProperty]
+    private string _activeGamePlayer = "Player unavailable";
+
+    [ObservableProperty]
+    private string _activeGameRunes = "Runes unavailable";
 
     [ObservableProperty]
     private ProfileMatchViewModel? _selectedProfileMatch;
@@ -149,6 +208,9 @@ public partial class MainViewModel : ViewModelBase
     private bool _isAramChampionSelect;
 
     [ObservableProperty]
+    private bool _isAramMayhemChampionSelect;
+
+    [ObservableProperty]
     private bool _isRandomCardChampionSelect;
 
     [ObservableProperty]
@@ -171,6 +233,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _lobbySetupStatus = "";
+
+    [ObservableProperty]
+    private IReadOnlyList<GameModeSetupSectionViewModel> _gameModeSetupSections = [];
 
     [ObservableProperty]
     private IReadOnlyList<QuickplaySlotViewModel> _quickplaySlots = [];
@@ -228,6 +293,16 @@ public partial class MainViewModel : ViewModelBase
     public bool CanCreateLobby => Phase == AppPhase.Connected && SelectedGameMode is not null;
     public bool CanUseMatchmaking => Phase == AppPhase.Connected;
     public bool CanLeaveLobby => Phase == AppPhase.Connected && _currentLobbyState is not null;
+    public bool HasCurrentLobby => _currentLobbyState is not null || LobbyMembers.Count > 0;
+    public bool HasStatusCta => Phase is AppPhase.ActiveGame or AppPhase.ChampionSelect || HasCurrentLobby;
+    public string StatusCtaTitle =>
+        Phase == AppPhase.ActiveGame ? "Active Game" :
+        Phase == AppPhase.ChampionSelect ? "Champion Select" :
+        "Current Lobby";
+    public string StatusCtaDescription =>
+        Phase == AppPhase.ActiveGame ? ActiveGame :
+        Phase == AppPhase.ChampionSelect ? ChampionSelect :
+        CurrentLobby;
     public bool HasSelectedChampion => SelectedChampion is not null;
     public bool HasBanWarning => !string.IsNullOrWhiteSpace(BanWarning);
     public bool HasQuickBanChampions => QuickBanChampions.Count > 0;
@@ -235,10 +310,33 @@ public partial class MainViewModel : ViewModelBase
     public bool HasLobbyMembers => LobbyMembers.Count > 0;
     public bool HasProfileMatches => ProfileMatches.Count > 0;
     public bool HasNoProfileMatches => ProfileMatches.Count == 0;
+    public bool HasAramMayhemAugmentStats => AramMayhemAugmentStats.Count > 0;
+    public bool HasNoAramMayhemAugmentStats => IsAramMayhemAugmentPanelVisible && AramMayhemAugmentStats.Count == 0;
+    public bool IsAramMayhemAugmentPanelVisible => Phase == AppPhase.ChampionSelect && IsAramMayhemChampionSelect && _currentChampionSelectChampionId > 0;
+    public string AramMayhemAugmentEmptyText => _currentSummonerMatchSampleLoading ? "Loading ARAM Mayhem augment sample" : "No ARAM Mayhem augment sample";
+    public bool IsAramMayhemLobby => _currentLobbyState?.GameConfig?.QueueId == 2400;
+    public bool IsAramMayhemLobbyHistoryVisible => IsReadyScreen && IsAramMayhemLobby;
+    public bool HasAramMayhemChampionSamples => AramMayhemChampionSamples.Count > 0;
+    public bool HasNoAramMayhemChampionSamples => IsAramMayhemLobbyHistoryVisible && AramMayhemChampionSamples.Count == 0;
+    public bool HasAramMayhemLobbyAugmentStats => AramMayhemLobbyAugmentStats.Count > 0;
+    public bool HasNoAramMayhemLobbyAugmentStats => SelectedAramMayhemChampionSample is not null && AramMayhemLobbyAugmentStats.Count == 0;
+    public string AramMayhemLobbyHistoryEmptyText => _currentSummonerMatchSampleLoading ? "Loading ARAM Mayhem history sample" : "No ARAM Mayhem history sample";
+    public bool IsCurrentSummonerHomeTab => SelectedHomeTab == "Current Summoner";
+    public bool IsAramMayhemHomeTab => SelectedHomeTab == "ARAM Mayhem";
+    public bool HasAramMayhemGlobalChampionStats => AramMayhemGlobalChampionStats.Count > 0;
+    public bool HasNoAramMayhemGlobalStats => IsAramMayhemHomeTab && AramMayhemGlobalChampionStats.Count == 0;
+    public bool HasAramMayhemGlobalAugmentStats => AramMayhemGlobalAugmentStats.Count > 0;
+    public bool HasNoAramMayhemGlobalAugmentStats => IsAramMayhemHomeTab && AramMayhemGlobalChampionStats.Count > 0 && AramMayhemGlobalAugmentStats.Count == 0;
+    public string AramMayhemGlobalEmptyText => _currentSummonerMatchSampleLoading ? "Loading ARAM Mayhem sample" : "No ARAM Mayhem matches found in recent history";
+    public bool IsAramMayhemChampionPoolSegment => SelectedAramMayhemLobbySegment == "Champion Pool";
+    public bool IsAramMayhemAugmentsSegment => SelectedAramMayhemLobbySegment == "Augments";
+    public bool HasActiveGameTeammates => ActiveGameTeammates.Count > 0;
+    public bool HasActiveGameEnemies => ActiveGameEnemies.Count > 0;
     public bool IsProfileMatchDetailOpen => ProfileMatchDetail is not null;
     public bool IsHomeScreen => Screen == "Home";
     public bool IsReadyScreen => Screen == "Ready";
     public bool IsChampionSelectScreen => Screen == "ChampionSelect";
+    public bool IsActiveGameScreen => Screen == "ActiveGame";
     public bool IsProfileScreen => Screen == "Profile";
     public bool CanOpenCurrentSummonerProfile => _currentSummoner is not null;
     public bool IsFiveVFiveChampionSelect => !IsRandomCardChampionSelect;
@@ -246,8 +344,12 @@ public partial class MainViewModel : ViewModelBase
     public bool HasNoSummonersRiftIcon => SummonersRiftIcon is null;
     public bool HasAramIcon => AramIcon is not null;
     public bool HasNoAramIcon => AramIcon is null;
+    public IReadOnlyList<string> VisibleModeGroups => ModeGroups
+        .Where(group => group is not "Summoner's Rift" and not "ARAM")
+        .ToList();
     public bool IsPositionSelectorVisible => _currentLobbyState?.GameConfig?.ShowPositionSelector == true;
     public bool IsQuickplaySetupVisible => _currentLobbyState?.GameConfig?.ShowQuickPlaySlotSelection == true;
+    public bool HasGameModeSetup => GameModeSetupSections.Count > 0;
     public bool HasQuickplaySlots => QuickplaySlots.Count > 0;
     public bool IsQuickplayEditorOpen => ActiveQuickplaySlot is not null;
     public bool CanSaveSettings => SelectedQuickplaySpell1 is not null
@@ -284,6 +386,7 @@ public partial class MainViewModel : ViewModelBase
         _summonerIconCache = summonerIconCache;
         _summonerSpellIconCache = summonerSpellIconCache;
         _itemIconCache = itemIconCache;
+        _aramMayhemAugmentIconCache = new AramMayhemAugmentIconCache(log);
         _preferenceStore = preferenceStore;
         _preferences = _preferenceStore.Load();
         _allChampionTiles = _championCatalog.All.Select(champion => new ChampionTileViewModel(champion)).ToList();
@@ -332,9 +435,14 @@ public partial class MainViewModel : ViewModelBase
         {
             Screen = "Ready";
         }
-        else if (value == AppPhase.ChampionSelect)
+        else if ((value == AppPhase.ChampionSelect || value == AppPhase.ActiveGame) && _lastAutoOpenedPhase != value)
         {
-            Screen = "ChampionSelect";
+            Screen = value == AppPhase.ActiveGame ? "ActiveGame" : "ChampionSelect";
+            _lastAutoOpenedPhase = value;
+        }
+        else if (value is not AppPhase.ChampionSelect and not AppPhase.ActiveGame)
+        {
+            _lastAutoOpenedPhase = value;
         }
 
         OnPropertyChanged(nameof(CanRespondReadyCheck));
@@ -342,6 +450,9 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanCreateLobby));
         OnPropertyChanged(nameof(CanUseMatchmaking));
         OnPropertyChanged(nameof(CanLeaveLobby));
+        RefreshAramMayhemAugmentBindings();
+        RefreshAramMayhemLobbyHistoryBindings();
+        RefreshStatusCtaBindings();
     }
 
     partial void OnScreenChanged(string value)
@@ -349,7 +460,16 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsHomeScreen));
         OnPropertyChanged(nameof(IsReadyScreen));
         OnPropertyChanged(nameof(IsChampionSelectScreen));
+        OnPropertyChanged(nameof(IsActiveGameScreen));
         OnPropertyChanged(nameof(IsProfileScreen));
+        RefreshAramMayhemLobbyHistoryBindings();
+    }
+
+    private void RefreshStatusCtaBindings()
+    {
+        OnPropertyChanged(nameof(HasStatusCta));
+        OnPropertyChanged(nameof(StatusCtaTitle));
+        OnPropertyChanged(nameof(StatusCtaDescription));
     }
 
     partial void OnSummonersRiftIconChanged(Bitmap? value)
@@ -367,6 +487,11 @@ public partial class MainViewModel : ViewModelBase
     partial void OnSelectedModeGroupChanged(string value)
     {
         RefreshGameModes();
+    }
+
+    partial void OnModeGroupsChanged(IReadOnlyList<string> value)
+    {
+        OnPropertyChanged(nameof(VisibleModeGroups));
     }
 
     partial void OnSelectedPrimaryPositionChanged(string value)
@@ -396,6 +521,11 @@ public partial class MainViewModel : ViewModelBase
     partial void OnIsAramChampionSelectChanged(bool value)
     {
         OnPropertyChanged(nameof(RandomCardChampionSelectLabel));
+    }
+
+    partial void OnIsAramMayhemChampionSelectChanged(bool value)
+    {
+        RefreshAramMayhemAugmentBindings();
     }
 
     partial void OnIsRandomCardChampionSelectChanged(bool value)
@@ -519,6 +649,26 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasQuickBanChampions));
     }
 
+    partial void OnGameModeSetupSectionsChanged(IReadOnlyList<GameModeSetupSectionViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasGameModeSetup));
+    }
+
+    partial void OnActiveGameChanged(string value)
+    {
+        RefreshStatusCtaBindings();
+    }
+
+    partial void OnChampionSelectChanged(string value)
+    {
+        RefreshStatusCtaBindings();
+    }
+
+    partial void OnCurrentLobbyChanged(string value)
+    {
+        RefreshStatusCtaBindings();
+    }
+
     partial void OnQuickplaySlotsChanged(IReadOnlyList<QuickplaySlotViewModel> value)
     {
         OnPropertyChanged(nameof(HasQuickplaySlots));
@@ -530,6 +680,77 @@ public partial class MainViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(HasProfileMatches));
         OnPropertyChanged(nameof(HasNoProfileMatches));
+    }
+
+    partial void OnAramMayhemAugmentStatsChanged(IReadOnlyList<AramMayhemAugmentSampleViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasAramMayhemAugmentStats));
+        OnPropertyChanged(nameof(HasNoAramMayhemAugmentStats));
+        QueueAramMayhemAugmentCatalogLoad();
+        _ = Task.Run(() => LoadAramMayhemLobbyAugmentIconsAsync(value, _polling.Token));
+    }
+
+    partial void OnAramMayhemChampionSamplesChanged(IReadOnlyList<AramMayhemChampionSampleViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasAramMayhemChampionSamples));
+        OnPropertyChanged(nameof(HasNoAramMayhemChampionSamples));
+    }
+
+    partial void OnSelectedAramMayhemChampionSampleChanged(AramMayhemChampionSampleViewModel? value)
+    {
+        RefreshAramMayhemLobbyAugmentStats();
+    }
+
+    partial void OnAramMayhemLobbyAugmentStatsChanged(IReadOnlyList<AramMayhemAugmentSampleViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasAramMayhemLobbyAugmentStats));
+        OnPropertyChanged(nameof(HasNoAramMayhemLobbyAugmentStats));
+        QueueAramMayhemAugmentCatalogLoad();
+        _ = Task.Run(() => LoadAramMayhemLobbyAugmentIconsAsync(value, _polling.Token));
+    }
+
+    partial void OnSelectedHomeTabChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsCurrentSummonerHomeTab));
+        OnPropertyChanged(nameof(IsAramMayhemHomeTab));
+        OnPropertyChanged(nameof(HasNoAramMayhemGlobalStats));
+        OnPropertyChanged(nameof(HasNoAramMayhemGlobalAugmentStats));
+    }
+
+    partial void OnAramMayhemGlobalChampionStatsChanged(IReadOnlyList<AramMayhemGlobalChampionViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasAramMayhemGlobalChampionStats));
+        OnPropertyChanged(nameof(HasNoAramMayhemGlobalStats));
+        OnPropertyChanged(nameof(HasNoAramMayhemGlobalAugmentStats));
+    }
+
+    partial void OnSelectedAramMayhemGlobalChampionChanged(AramMayhemGlobalChampionViewModel? value)
+    {
+        RefreshAramMayhemGlobalAugmentStats();
+    }
+
+    partial void OnAramMayhemGlobalAugmentStatsChanged(IReadOnlyList<AramMayhemAugmentSampleViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasAramMayhemGlobalAugmentStats));
+        OnPropertyChanged(nameof(HasNoAramMayhemGlobalAugmentStats));
+        QueueAramMayhemAugmentCatalogLoad();
+        _ = Task.Run(() => LoadAramMayhemLobbyAugmentIconsAsync(value, _polling.Token));
+    }
+
+    partial void OnSelectedAramMayhemLobbySegmentChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsAramMayhemChampionPoolSegment));
+        OnPropertyChanged(nameof(IsAramMayhemAugmentsSegment));
+    }
+
+    partial void OnActiveGameTeammatesChanged(IReadOnlyList<ActiveGamePlayerViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasActiveGameTeammates));
+    }
+
+    partial void OnActiveGameEnemiesChanged(IReadOnlyList<ActiveGamePlayerViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasActiveGameEnemies));
     }
 
     partial void OnProfileMatchDetailChanged(ProfileMatchViewModel? value)
@@ -545,6 +766,8 @@ public partial class MainViewModel : ViewModelBase
     partial void OnLobbyMembersChanged(IReadOnlyList<LobbyMemberViewModel> value)
     {
         OnPropertyChanged(nameof(HasLobbyMembers));
+        OnPropertyChanged(nameof(HasCurrentLobby));
+        RefreshStatusCtaBindings();
     }
 
     partial void OnSelectedGameModeChanged(GameMode? value)
@@ -634,6 +857,60 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void OpenCurrentLobby()
+    {
+        Screen = "Ready";
+    }
+
+    [RelayCommand]
+    private void SelectHomeTab(string tab)
+    {
+        if (tab is "Current Summoner" or "ARAM Mayhem")
+        {
+            SelectedHomeTab = tab;
+        }
+    }
+
+    [RelayCommand]
+    private void SelectAramMayhemChampionSample(AramMayhemChampionSampleViewModel sample)
+    {
+        SelectedAramMayhemChampionSample = sample;
+        foreach (var championSample in AramMayhemChampionSamples)
+        {
+            championSample.IsSelected = championSample == sample;
+        }
+
+        SelectedAramMayhemLobbySegment = "Augments";
+    }
+
+    [RelayCommand]
+    private void SelectAramMayhemGlobalChampion(AramMayhemGlobalChampionViewModel sample)
+    {
+        SelectedAramMayhemGlobalChampion = sample;
+        foreach (var championSample in AramMayhemGlobalChampionStats)
+        {
+            championSample.IsSelected = championSample == sample;
+        }
+    }
+
+    [RelayCommand]
+    private void SelectAramMayhemLobbySegment(string segment)
+    {
+        if (segment is "Champion Pool" or "Augments")
+        {
+            SelectedAramMayhemLobbySegment = segment;
+        }
+    }
+
+    [RelayCommand]
+    private void OpenStatus()
+    {
+        Screen = Phase == AppPhase.ActiveGame ? "ActiveGame" :
+            Phase == AppPhase.ChampionSelect ? "ChampionSelect" :
+            "Ready";
+    }
+
+    [RelayCommand]
     private void SelectModeGroup(string group)
     {
         SelectedModeGroup = group;
@@ -652,6 +929,10 @@ public partial class MainViewModel : ViewModelBase
         if (Phase == AppPhase.ChampionSelect)
         {
             Screen = "ChampionSelect";
+        }
+        else if (Phase == AppPhase.ActiveGame)
+        {
+            Screen = "ActiveGame";
         }
         else if (Phase == AppPhase.ReadyCheck)
         {
@@ -847,6 +1128,7 @@ public partial class MainViewModel : ViewModelBase
 
     public static TimeSpan PollingDelayFor(AppPhase phase, string screen, bool hasLobby) =>
         phase is AppPhase.ReadyCheck or AppPhase.ChampionSelect ? TimeSpan.FromSeconds(1) :
+        phase == AppPhase.ActiveGame ? TimeSpan.FromSeconds(1) :
         screen == "Profile" ? TimeSpan.FromSeconds(8) :
         screen == "Ready" && hasLobby ? TimeSpan.FromSeconds(2) :
         phase == AppPhase.Connected ? TimeSpan.FromSeconds(8) :
@@ -1035,12 +1317,14 @@ public partial class MainViewModel : ViewModelBase
         _disabledChampionIds = snapshot.DisabledChampionIds.ToHashSet();
         _allyHoveredChampionIds = snapshot.ChampionSelect?.AllyHoveredChampionIds ?? new HashSet<int>();
         IsAramChampionSelect = IsAram(snapshot.Gameflow);
+        IsAramMayhemChampionSelect = IsAramMayhem(snapshot.Gameflow);
         IsRandomCardChampionSelect = IsRandomCardChampionSelectSession(snapshot);
         RandomCardChampionSelectLabel = IsAramChampionSelect ? "ARAM" : "Random Pick";
         ChampionSelectTimeline = GetChampionSelectTimeline(snapshot.ChampionSelect);
         TradeRequests = snapshot.TradeRequests.Where(trade => trade.IsPending).ToList();
 
         var localChampionId = snapshot.ChampionSelect?.LocalPlayer?.ChampionId ?? 0;
+        _currentChampionSelectChampionId = localChampionId;
         CurrentChampion = localChampionId > 0 && _championTilesById.TryGetValue(localChampionId, out var localChampion)
             ? localChampion.Name
             : "No champion selected";
@@ -1052,6 +1336,7 @@ public partial class MainViewModel : ViewModelBase
 
         RefreshChampions();
         RefreshQuickBans();
+        RefreshAramMayhemAugmentStats();
         RefreshBanWarning();
         OnPropertyChanged(nameof(CanChampionCommand));
         OnPropertyChanged(nameof(CanPickAramChampion));
@@ -1127,6 +1412,13 @@ public partial class MainViewModel : ViewModelBase
             || (queue?.GameMode?.Contains("ARAM", StringComparison.OrdinalIgnoreCase) == true);
     }
 
+    private static bool IsAramMayhem(GameflowSession? gameflow)
+    {
+        var queue = gameflow?.GameData?.Queue;
+        var queueId = queue?.QueueId ?? queue?.Id;
+        return queueId == 2400;
+    }
+
     private static bool IsRandomCardChampionSelectSession(LcuSnapshot snapshot)
     {
         var session = snapshot.ChampionSelect;
@@ -1151,7 +1443,12 @@ public partial class MainViewModel : ViewModelBase
         Phase = snapshot.Phase;
         Status = snapshot.Message;
         _currentSummoner = snapshot.Summoner;
+        EnsureCurrentSummonerMatchSample(snapshot.Summoner);
         _currentLobbyState = snapshot.Lobby;
+        OnPropertyChanged(nameof(HasCurrentLobby));
+        OnPropertyChanged(nameof(IsAramMayhemLobby));
+        RefreshAramMayhemLobbyHistory();
+        RefreshStatusCtaBindings();
         Summoner = snapshot.Summoner?.Name ?? "Not connected";
         CurrentLobby = DescribeLobby(snapshot.Lobby, snapshot.LobbyMembers);
         ApplyLobbySetupState(snapshot.Lobby);
@@ -1168,6 +1465,7 @@ public partial class MainViewModel : ViewModelBase
             ? "Not in champion select"
             : $"{ChampionSelectModeLabel(snapshot)} - Allies: {snapshot.ChampionSelect.MyTeam.Count}, enemies: {snapshot.ChampionSelect.TheirTeam.Count}";
         ApplyChampionSelectState(snapshot);
+        ApplyActiveGameState(snapshot.ActiveGame);
         AcceptCommand.NotifyCanExecuteChanged();
         DeclineCommand.NotifyCanExecuteChanged();
         OpenCurrentSummonerProfileCommand.NotifyCanExecuteChanged();
@@ -1198,12 +1496,48 @@ public partial class MainViewModel : ViewModelBase
                     ? "Choose primary and secondary lanes before matchmaking."
                     : "";
         ApplyQuickplaySlots(lobby?.GameConfig?.ShowQuickPlaySlotSelection == true ? local?.PlayerSlots ?? [] : []);
+        GameModeSetupSections = BuildGameModeSetup(lobby);
 
         OnPropertyChanged(nameof(IsPositionSelectorVisible));
         OnPropertyChanged(nameof(IsQuickplaySetupVisible));
         OnPropertyChanged(nameof(CanSavePositions));
         SavePositionsCommand.NotifyCanExecuteChanged();
         OnQuickplaySlotChanged();
+    }
+
+    private IReadOnlyList<GameModeSetupSectionViewModel> BuildGameModeSetup(LobbyState? lobby)
+    {
+        var sections = new List<GameModeSetupSectionViewModel>();
+        if (lobby?.GameConfig?.ShowPositionSelector == true)
+        {
+            sections.Add(new(
+                "Lane Preferences",
+                [
+                    GameModeSetupFieldViewModel.TextLine("Choose primary and secondary lanes before matchmaking."),
+                    GameModeSetupFieldViewModel.Select("Primary", PositionOptions, SelectedPrimaryPosition, value => SelectedPrimaryPosition = value),
+                    GameModeSetupFieldViewModel.Select("Secondary", PositionOptions, SelectedSecondaryPosition, value => SelectedSecondaryPosition = value)
+                ],
+                [new("Save Lanes", GameModeSetupCommandId.SaveLanePreferences)]));
+        }
+
+        if (lobby?.GameConfig?.ShowQuickPlaySlotSelection == true)
+        {
+            sections.Add(new(
+                "Quickplay Slots",
+                [
+                    GameModeSetupFieldViewModel.TextLine(LobbySetupStatus),
+                    GameModeSetupFieldViewModel.RowList("Slots", QuickplaySlots),
+                    GameModeSetupFieldViewModel.Toggle("Override Quickplay spells", OverrideQuickplaySpells, value => OverrideQuickplaySpells = value),
+                    GameModeSetupFieldViewModel.Select("Spell 1", SummonerSpellOptions, SelectedQuickplaySpell1, value => SelectedQuickplaySpell1 = value),
+                    GameModeSetupFieldViewModel.Select("Spell 2", SummonerSpellOptions, SelectedQuickplaySpell2, value => SelectedQuickplaySpell2 = value)
+                ],
+                [
+                    new("Save Spell Settings", GameModeSetupCommandId.SaveQuickplaySpellSettings),
+                    new("Save Quickplay", GameModeSetupCommandId.SaveQuickplaySlots)
+                ]));
+        }
+
+        return sections;
     }
 
     private IReadOnlyList<QuickplaySlotViewModel> ToQuickplaySlots(IEnumerable<LobbyPlayerSlot> slots) =>
@@ -1401,21 +1735,350 @@ public partial class MainViewModel : ViewModelBase
 
     private void ApplyScreenForSnapshot(LcuSnapshot snapshot)
     {
-        if (Screen == "Profile" || snapshot.Phase is AppPhase.ReadyCheck or AppPhase.ChampionSelect)
+        if (Screen == "Profile" || snapshot.Phase is AppPhase.ReadyCheck or AppPhase.ChampionSelect or AppPhase.ActiveGame)
         {
             return;
         }
 
-        if (snapshot.Lobby is not null || snapshot.LobbyMembers.Count > 0)
+    }
+
+    private void ApplyActiveGameState(ActiveGameState? activeGame)
+    {
+        if (activeGame is null)
         {
-            Screen = "Ready";
+            ActiveGame = "No active game";
+            ActiveGamePlayer = "Player unavailable";
+            ActiveGameRunes = "Runes unavailable";
+            ActiveGameTeammates = [];
+            ActiveGameEnemies = [];
             return;
         }
 
-        if (Screen == "Ready")
+        ActiveGame = $"{activeGame.Stats?.GameMode ?? "In game"} - {FormatGameTime(activeGame.Stats?.GameTime ?? 0)}";
+        var level = activeGame.ActivePlayer?.ChampionStats?.Level;
+        var gold = activeGame.ActivePlayer?.CurrentGold ?? 0;
+        ActiveGamePlayer = $"{activeGame.ActivePlayer?.SummonerName ?? "You"} - Level {(level > 0 ? level : "?")} - Gold {gold:0}";
+        IEnumerable<LiveRune?> runes = [activeGame.ActivePlayer?.FullRunes?.Keystone];
+        ActiveGameRunes = string.Join(", ", runes
+            .Concat(activeGame.ActivePlayer?.FullRunes?.GeneralRunes ?? [])
+            .Where(rune => rune is not null && !string.IsNullOrWhiteSpace(rune.DisplayName))
+            .Select(rune => rune!.DisplayName!)
+            .Distinct()
+            .Take(4));
+        if (string.IsNullOrWhiteSpace(ActiveGameRunes))
         {
-            Screen = "Home";
+            ActiveGameRunes = "Runes unavailable";
         }
+
+        var localTeam = activeGame.Players
+            .FirstOrDefault(player => string.Equals(player.SummonerName, activeGame.ActivePlayer?.SummonerName, StringComparison.OrdinalIgnoreCase))
+            ?.Team;
+        ActiveGameTeammates = activeGame.Players
+            .Where(player => string.Equals(player.Team, localTeam, StringComparison.OrdinalIgnoreCase))
+            .Select(ActiveGamePlayerViewModel.From)
+            .ToList();
+        ActiveGameEnemies = activeGame.Players
+            .Where(player => !string.Equals(player.Team, localTeam, StringComparison.OrdinalIgnoreCase))
+            .Select(ActiveGamePlayerViewModel.From)
+            .ToList();
+    }
+
+    private static string FormatGameTime(double seconds) =>
+        TimeSpan.FromSeconds(Math.Max(0, seconds)).ToString(@"m\:ss");
+
+    private string ChampionName(int championId) =>
+        _championTilesById.TryGetValue(championId, out var tile) ? tile.Name : $"Champion {championId}";
+
+    private void EnsureCurrentSummonerMatchSample(CurrentSummoner? summoner)
+    {
+        var puuid = summoner?.Puuid;
+        if (string.IsNullOrWhiteSpace(puuid))
+        {
+            _currentSummonerMatchSample = [];
+            _currentSummonerMatchSamplePuuid = null;
+            _currentSummonerMatchSampleLoading = false;
+            RefreshAramMayhemAugmentStats();
+            RefreshAramMayhemLobbyHistory();
+            RefreshAramMayhemGlobalStats();
+            return;
+        }
+
+        if (_currentSummonerMatchSamplePuuid == puuid)
+        {
+            return;
+        }
+
+        _currentSummonerMatchSamplePuuid = puuid;
+        _currentSummonerMatchSample = [];
+        _currentSummonerMatchSampleLoading = true;
+        RefreshAramMayhemAugmentStats();
+        RefreshAramMayhemLobbyHistory();
+        RefreshAramMayhemGlobalStats();
+        _ = Task.Run(() => LoadCurrentSummonerMatchSampleAsync(puuid, _polling.Token));
+    }
+
+    private async Task LoadCurrentSummonerMatchSampleAsync(string puuid, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var matches = await _lcu.GetMatchHistoryAsync(puuid, cancellationToken).ConfigureAwait(false);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_currentSummonerMatchSamplePuuid != puuid)
+                {
+                    return;
+                }
+
+                _currentSummonerMatchSample = matches;
+                _currentSummonerMatchSampleLoading = false;
+                RefreshAramMayhemAugmentStats();
+                RefreshAramMayhemLobbyHistory();
+                RefreshAramMayhemGlobalStats();
+            });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _log.Error("ARAM Mayhem augment sample loading failed", exception);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_currentSummonerMatchSamplePuuid == puuid)
+                {
+                    _currentSummonerMatchSampleLoading = false;
+                    RefreshAramMayhemAugmentStats();
+                    RefreshAramMayhemLobbyHistory();
+                    RefreshAramMayhemGlobalStats();
+                }
+            });
+        }
+    }
+
+    private void RefreshAramMayhemGlobalStats()
+    {
+        var selectedChampionId = SelectedAramMayhemGlobalChampion?.Champion.Champion.ChampionId;
+        var participants = AramMayhemParticipants(_currentSummonerMatchSample).ToList();
+        var samples = participants
+            .GroupBy(participant => participant.ChampionId)
+            .Select(group => new
+            {
+                ChampionId = group.Key,
+                Samples = group.Count(),
+                Wins = group.Count(participant => participant.Win),
+                Placements = group.Select(participant => participant.Placement).Where(placement => placement > 0).ToList(),
+                Name = ChampionName(group.Key)
+            })
+            .Where(group => _championTilesById.ContainsKey(group.ChampionId))
+            .OrderByDescending(group => group.Samples)
+            .ThenByDescending(group => group.Wins / (double)group.Samples)
+            .ThenBy(group => group.Name)
+            .ToList();
+
+        selectedChampionId = samples.Any(sample => sample.ChampionId == selectedChampionId)
+            ? selectedChampionId
+            : samples.FirstOrDefault()?.ChampionId;
+
+        AramMayhemGlobalChampionStats = samples
+            .Select(sample => new AramMayhemGlobalChampionViewModel(
+                _championTilesById[sample.ChampionId],
+                sample.Samples,
+                sample.Wins,
+                sample.Placements.Count == 0 ? null : sample.Placements.Average(),
+                sample.ChampionId == selectedChampionId))
+            .ToList();
+        SelectedAramMayhemGlobalChampion = AramMayhemGlobalChampionStats.FirstOrDefault(sample => sample.IsSelected);
+        RefreshAramMayhemGlobalBindings();
+    }
+
+    private void RefreshAramMayhemGlobalAugmentStats()
+    {
+        var championId = SelectedAramMayhemGlobalChampion?.Champion.Champion.ChampionId;
+        var participants = AramMayhemParticipants(_currentSummonerMatchSample)
+            .Where(participant => championId is null || participant.ChampionId == championId)
+            .Where(participant => participant.AugmentIds is { Count: > 0 })
+            .ToList();
+
+        AramMayhemGlobalAugmentTitle = championId is null
+            ? "ARAM Mayhem Augments"
+            : $"Top Augments for {ChampionName(championId.Value)}";
+        AramMayhemGlobalAugmentStats = StableAugmentStats(AramMayhemGlobalAugmentStats, participants
+            .SelectMany(participant => participant.AugmentIds!.Distinct())
+            .GroupBy(id => id)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key)
+            .Take(8)
+            .Select(group => AramMayhemAugmentSampleViewModel.From(WithAugmentCatalog(new MatchPickrateStat(group.Key, $"Augment {group.Key}", group.Count(), participants.Count))))
+            .ToList());
+    }
+
+    private void RefreshAramMayhemGlobalBindings()
+    {
+        OnPropertyChanged(nameof(HasAramMayhemGlobalChampionStats));
+        OnPropertyChanged(nameof(HasNoAramMayhemGlobalStats));
+        OnPropertyChanged(nameof(HasAramMayhemGlobalAugmentStats));
+        OnPropertyChanged(nameof(HasNoAramMayhemGlobalAugmentStats));
+        OnPropertyChanged(nameof(AramMayhemGlobalEmptyText));
+    }
+
+    private static IEnumerable<MatchHistoryEntry> AramMayhemMatches(IEnumerable<MatchHistoryEntry> matches) =>
+        matches.Where(match => string.Equals(match.Queue, "ARAM Mayhem", StringComparison.OrdinalIgnoreCase));
+
+    private static IEnumerable<MatchParticipantPerformance> AramMayhemParticipants(IEnumerable<MatchHistoryEntry> matches) =>
+        AramMayhemMatches(matches).SelectMany(match => match.Participants ?? []);
+
+    private void RefreshAramMayhemLobbyHistory()
+    {
+        var selectedChampionId = SelectedAramMayhemChampionSample?.Champion.Champion.ChampionId;
+        var samples = _currentSummonerMatchSample
+            .Where(match => string.Equals(match.Queue, "ARAM Mayhem", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(match => match.ChampionId)
+            .Select(group => new { ChampionId = group.Key, Matches = group.Count(), Name = ChampionName(group.Key) })
+            .Where(group => _championTilesById.ContainsKey(group.ChampionId))
+            .OrderByDescending(group => group.Matches)
+            .ThenBy(group => group.Name)
+            .Take(8)
+            .ToList();
+
+        selectedChampionId = samples.Any(sample => sample.ChampionId == selectedChampionId)
+            ? selectedChampionId
+            : samples.FirstOrDefault()?.ChampionId;
+
+        AramMayhemChampionSamples = samples
+            .Select(sample => new AramMayhemChampionSampleViewModel(_championTilesById[sample.ChampionId], sample.Matches, sample.ChampionId == selectedChampionId))
+            .ToList();
+        SelectedAramMayhemChampionSample = AramMayhemChampionSamples.FirstOrDefault(sample => sample.IsSelected);
+        RefreshAramMayhemLobbyHistoryBindings();
+    }
+
+    private void RefreshAramMayhemLobbyAugmentStats()
+    {
+        var championId = SelectedAramMayhemChampionSample?.Champion.Champion.ChampionId ?? 0;
+        AramMayhemLobbyAugmentTitle = championId > 0
+            ? $"Popular ARAM Mayhem Augments for {ChampionName(championId)}"
+            : "Popular ARAM Mayhem Augments";
+        AramMayhemLobbyAugmentStats = StableAugmentStats(AramMayhemLobbyAugmentStats, championId > 0
+            ? MatchPickrateCalculator.FromAugments(_currentSummonerMatchSample, championId)
+                .Select(WithAugmentCatalog)
+                .Select(AramMayhemAugmentSampleViewModel.From)
+                .ToList()
+            : []);
+        RefreshAramMayhemLobbyHistoryBindings();
+    }
+
+    private void RefreshAramMayhemLobbyHistoryBindings()
+    {
+        OnPropertyChanged(nameof(IsAramMayhemLobbyHistoryVisible));
+        OnPropertyChanged(nameof(HasAramMayhemChampionSamples));
+        OnPropertyChanged(nameof(HasNoAramMayhemChampionSamples));
+        OnPropertyChanged(nameof(HasAramMayhemLobbyAugmentStats));
+        OnPropertyChanged(nameof(HasNoAramMayhemLobbyAugmentStats));
+        OnPropertyChanged(nameof(AramMayhemLobbyHistoryEmptyText));
+    }
+
+    private void RefreshAramMayhemAugmentStats()
+    {
+        AramMayhemAugmentTitle = _currentChampionSelectChampionId > 0
+            ? $"Popular ARAM Mayhem Augments for {ChampionName(_currentChampionSelectChampionId)}"
+            : "Popular ARAM Mayhem Augments";
+        AramMayhemAugmentStats = StableAugmentStats(AramMayhemAugmentStats, IsAramMayhemAugmentPanelVisible
+            ? MatchPickrateCalculator.FromAugments(_currentSummonerMatchSample, _currentChampionSelectChampionId)
+                .Select(WithAugmentCatalog)
+                .Select(AramMayhemAugmentSampleViewModel.From)
+                .ToList()
+            : []);
+        RefreshAramMayhemAugmentBindings();
+    }
+
+    private MatchPickrateStat WithAugmentCatalog(MatchPickrateStat stat) =>
+        new(stat.Id, AramMayhemAugmentCatalog.Name(stat.Id), stat.Picks, stat.Total);
+
+    private static IReadOnlyList<AramMayhemAugmentSampleViewModel> StableAugmentStats(
+        IReadOnlyList<AramMayhemAugmentSampleViewModel> current,
+        IReadOnlyList<AramMayhemAugmentSampleViewModel> next)
+    {
+        if (current.Count != next.Count)
+        {
+            return next;
+        }
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            if (current[i].Id != next[i].Id
+                || current[i].Name != next[i].Name
+                || current[i].Picks != next[i].Picks
+                || current[i].Total != next[i].Total)
+            {
+                return next;
+            }
+        }
+
+        return current;
+    }
+
+    private void QueueAramMayhemAugmentCatalogLoad()
+    {
+        if (_aramMayhemAugmentCatalogLoadAttempted || _aramMayhemAugmentCatalogLoading || AramMayhemAugmentCatalog.IsLoaded)
+        {
+            return;
+        }
+
+        _aramMayhemAugmentCatalogLoadAttempted = true;
+        _aramMayhemAugmentCatalogLoading = true;
+        _ = Task.Run(() => LoadAramMayhemAugmentCatalogAsync(_polling.Token));
+    }
+
+    private async Task LoadAramMayhemAugmentCatalogAsync(CancellationToken cancellationToken)
+    {
+        await AramMayhemAugmentCatalog.EnsureLoadedAsync(_log, cancellationToken).ConfigureAwait(false);
+        Dispatcher.UIThread.Post(() =>
+        {
+            _aramMayhemAugmentCatalogLoading = false;
+            if (!AramMayhemAugmentCatalog.IsLoaded)
+            {
+                return;
+            }
+
+            RefreshAramMayhemAugmentStats();
+            RefreshAramMayhemLobbyAugmentStats();
+            RefreshAramMayhemGlobalAugmentStats();
+        });
+    }
+
+    private async Task LoadAramMayhemLobbyAugmentIconsAsync(IReadOnlyList<AramMayhemAugmentSampleViewModel> stats, CancellationToken cancellationToken)
+    {
+        try
+        {
+            foreach (var stat in stats)
+            {
+                var icon = await _aramMayhemAugmentIconCache.LoadAsync(stat.Id, cancellationToken).ConfigureAwait(false);
+                if (icon is not null)
+                {
+                    Dispatcher.UIThread.Post(() => stat.Icon = icon);
+                }
+
+                if (!stat.HasDescription
+                    && await AramMayhemAugmentCatalog.EnsureDescriptionAsync(stat.Id, _log, cancellationToken).ConfigureAwait(false))
+                {
+                    Dispatcher.UIThread.Post(stat.RefreshDetails);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _log.Error("ARAM Mayhem augment icon loading failed", exception);
+        }
+    }
+
+    private void RefreshAramMayhemAugmentBindings()
+    {
+        OnPropertyChanged(nameof(IsAramMayhemAugmentPanelVisible));
+        OnPropertyChanged(nameof(HasAramMayhemAugmentStats));
+        OnPropertyChanged(nameof(HasNoAramMayhemAugmentStats));
+        OnPropertyChanged(nameof(AramMayhemAugmentEmptyText));
     }
 
     private async Task OpenProfileAsync(SummonerProfile profile)
@@ -1453,11 +2116,12 @@ public partial class MainViewModel : ViewModelBase
 
             SelectedProfile = ProfilePanelViewModel.From(fetched, ranked?.Text ?? "Ranked unavailable");
             _ = Task.Run(() => LoadSelectedProfileIconAsync(fetched.ProfileIconId, _polling.Token));
-            ProfileMatches = string.IsNullOrWhiteSpace(fetched.Puuid)
+            var matchHistory = string.IsNullOrWhiteSpace(fetched.Puuid)
                 ? []
-                : (await _lcu.GetMatchHistoryAsync(fetched.Puuid, timeout.Token))
-                    .Select(entry => ProfileMatchViewModel.From(entry, _championTilesById, SummonerSpellOptions))
-                    .ToList();
+                : await _lcu.GetMatchHistoryAsync(fetched.Puuid, timeout.Token);
+            ProfileMatches = matchHistory
+                .Select(entry => ProfileMatchViewModel.From(entry, _championTilesById, SummonerSpellOptions))
+                .ToList();
             if (ProfileMatches.Count > 0)
             {
                 _ = Task.Run(() => LoadProfileMatchItemIconsAsync(ProfileMatches, _polling.Token));
@@ -1702,6 +2366,258 @@ public partial class QuickplaySlotViewModel : ViewModelBase
     }
 }
 
+public sealed class AramMayhemChampionSampleViewModel : ViewModelBase
+{
+    private bool _isSelected;
+
+    public AramMayhemChampionSampleViewModel(ChampionTileViewModel champion, int matches, bool isSelected)
+    {
+        Champion = champion;
+        Matches = matches;
+        _isSelected = isSelected;
+    }
+
+    public ChampionTileViewModel Champion { get; }
+    public int Matches { get; }
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
+
+    public string Name => Champion.Name;
+    public Bitmap? Icon => Champion.Icon;
+    public bool HasIcon => Champion.HasIcon;
+    public bool HasNoIcon => Champion.HasNoIcon;
+    public string MatchesText => $"{Matches} sampled match{(Matches == 1 ? "" : "es")}";
+}
+
+public sealed class AramMayhemGlobalChampionViewModel : ViewModelBase
+{
+    private bool _isSelected;
+
+    public AramMayhemGlobalChampionViewModel(ChampionTileViewModel champion, int samples, int wins, double? averagePlacement, bool isSelected)
+    {
+        Champion = champion;
+        Samples = samples;
+        Wins = wins;
+        AveragePlacement = averagePlacement;
+        _isSelected = isSelected;
+    }
+
+    public ChampionTileViewModel Champion { get; }
+    public int Samples { get; }
+    public int Wins { get; }
+    public double? AveragePlacement { get; }
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
+
+    public string Name => Champion.Name;
+    public Bitmap? Icon => Champion.Icon;
+    public bool HasIcon => Champion.HasIcon;
+    public bool HasNoIcon => Champion.HasNoIcon;
+    public string SamplesText => $"{Samples} picks";
+    public string WinrateText => Samples == 0 ? "0% win" : $"{Wins / (double)Samples:P0} win";
+    public string PlacementText => AveragePlacement is null ? "Placement n/a" : $"Avg place {AveragePlacement:0.0}";
+}
+
+public sealed class AramMayhemAugmentSampleViewModel(int id, string name, int picks, int total)
+    : ViewModelBase
+{
+    private Bitmap? _icon;
+
+    public int Id { get; } = id;
+    public string Name { get; } = name;
+    public int Picks { get; } = picks;
+    public int Total { get; } = total;
+    public Bitmap? Icon
+    {
+        get => _icon;
+        set
+        {
+            if (!SetProperty(ref _icon, value))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(HasIcon));
+            OnPropertyChanged(nameof(HasNoIcon));
+        }
+    }
+
+    public bool HasIcon => Icon is not null;
+    public bool HasNoIcon => Icon is null;
+    public string Rarity => AramMayhemAugmentCatalog.Rarity(Id);
+    public bool HasRarity => !string.IsNullOrWhiteSpace(Rarity);
+    public string RarityColor => Rarity switch
+    {
+        "Prismatic" => "#a855f7",
+        "Gold" => "#f59e0b",
+        "Silver" => "#94a3b8",
+        "Bronze" => "#b45309",
+        "EventChoice" => "#06b6d4",
+        _ => "#3f3858"
+    };
+    public string RarityBackground => Rarity switch
+    {
+        "Prismatic" => "#3b145f",
+        "Gold" => "#4a2c05",
+        "Silver" => "#273244",
+        "Bronze" => "#3d230d",
+        "EventChoice" => "#073847",
+        _ => "#242033"
+    };
+    public string Description => AramMayhemAugmentCatalog.Description(Id);
+    public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+    public string Badge => string.IsNullOrWhiteSpace(Name) ? "A" : Name[..1].ToUpperInvariant();
+    public string Details => string.IsNullOrWhiteSpace(AramMayhemAugmentCatalog.Rarity(Id))
+        ? Name
+        : $"{Name}\n{AramMayhemAugmentCatalog.Rarity(Id)}";
+
+    public void RefreshDetails()
+    {
+        OnPropertyChanged(nameof(Description));
+        OnPropertyChanged(nameof(HasDescription));
+        OnPropertyChanged(nameof(Details));
+    }
+
+    public static AramMayhemAugmentSampleViewModel From(MatchPickrateStat stat) =>
+        new(stat.Id, AramMayhemAugmentCatalog.Name(stat.Id), stat.Picks, stat.Total);
+}
+
+public enum GameModeSetupCommandId
+{
+    SaveLanePreferences,
+    OpenQuickplaySlot,
+    SaveQuickplaySlots,
+    SaveQuickplaySpellSettings
+}
+
+public enum GameModeSetupFieldKind
+{
+    Text,
+    Select,
+    Toggle,
+    RowList
+}
+
+public sealed record GameModeSetupSectionViewModel(
+    string Title,
+    IReadOnlyList<GameModeSetupFieldViewModel> Fields,
+    IReadOnlyList<GameModeSetupActionViewModel> Actions);
+
+public sealed class GameModeSetupFieldViewModel : ViewModelBase
+{
+    private readonly Action<object?>? _selectChanged;
+    private readonly Action<bool>? _toggleChanged;
+    private object? _selectedValue;
+    private bool _isChecked;
+
+    private GameModeSetupFieldViewModel(
+        GameModeSetupFieldKind kind,
+        string label,
+        string text = "",
+        IReadOnlyList<object>? options = null,
+        object? selectedValue = null,
+        Action<object?>? selectChanged = null,
+        bool isChecked = false,
+        Action<bool>? toggleChanged = null,
+        IReadOnlyList<QuickplaySlotViewModel>? rowItems = null)
+    {
+        Kind = kind;
+        Label = label;
+        Text = text;
+        Options = options ?? [];
+        _selectedValue = selectedValue;
+        _selectChanged = selectChanged;
+        _isChecked = isChecked;
+        _toggleChanged = toggleChanged;
+        RowItems = rowItems ?? [];
+    }
+
+    public GameModeSetupFieldKind Kind { get; }
+    public string Label { get; }
+    public string Text { get; }
+    public IReadOnlyList<object> Options { get; }
+    public IReadOnlyList<QuickplaySlotViewModel> RowItems { get; }
+    public bool IsText => Kind == GameModeSetupFieldKind.Text;
+    public bool IsSelect => Kind == GameModeSetupFieldKind.Select;
+    public bool IsToggle => Kind == GameModeSetupFieldKind.Toggle;
+    public bool IsRowList => Kind == GameModeSetupFieldKind.RowList;
+
+    public object? SelectedValue
+    {
+        get => _selectedValue;
+        set
+        {
+            if (!SetProperty(ref _selectedValue, value))
+            {
+                return;
+            }
+
+            _selectChanged?.Invoke(value);
+        }
+    }
+
+    public bool IsChecked
+    {
+        get => _isChecked;
+        set
+        {
+            if (!SetProperty(ref _isChecked, value))
+            {
+                return;
+            }
+
+            _toggleChanged?.Invoke(value);
+        }
+    }
+
+    public static GameModeSetupFieldViewModel TextLine(string text) =>
+        new(GameModeSetupFieldKind.Text, "", text);
+
+    public static GameModeSetupFieldViewModel Select(string label, IEnumerable<object> options, object? selectedValue, Action<object?> changed) =>
+        new(GameModeSetupFieldKind.Select, label, options: options.ToList(), selectedValue: selectedValue, selectChanged: changed);
+
+    public static GameModeSetupFieldViewModel Select(string label, IEnumerable<string> options, string selectedValue, Action<string> changed) =>
+        Select(label, options.Cast<object>(), selectedValue, value =>
+        {
+            if (value is string text)
+            {
+                changed(text);
+            }
+        });
+
+    public static GameModeSetupFieldViewModel Select(string label, IEnumerable<SummonerSpellOptionViewModel> options, SummonerSpellOptionViewModel selectedValue, Action<SummonerSpellOptionViewModel> changed) =>
+        Select(label, options.Cast<object>(), selectedValue, value =>
+        {
+            if (value is SummonerSpellOptionViewModel spell)
+            {
+                changed(spell);
+            }
+        });
+
+    public static GameModeSetupFieldViewModel Toggle(string label, bool isChecked, Action<bool> changed) =>
+        new(GameModeSetupFieldKind.Toggle, label, isChecked: isChecked, toggleChanged: changed);
+
+    public static GameModeSetupFieldViewModel RowList(string label, IReadOnlyList<QuickplaySlotViewModel> rowItems) =>
+        new(GameModeSetupFieldKind.RowList, label, rowItems: rowItems);
+}
+
+public sealed record GameModeSetupActionViewModel(string Label, GameModeSetupCommandId CommandId)
+{
+    public bool IsSaveLanePreferences => CommandId == GameModeSetupCommandId.SaveLanePreferences;
+    public bool IsOpenQuickplaySlot => CommandId == GameModeSetupCommandId.OpenQuickplaySlot;
+    public bool IsSaveQuickplaySlots => CommandId == GameModeSetupCommandId.SaveQuickplaySlots;
+    public bool IsSaveQuickplaySpellSettings => CommandId == GameModeSetupCommandId.SaveQuickplaySpellSettings;
+
+    public static bool IsWhitelisted(GameModeSetupCommandId commandId) =>
+        Enum.IsDefined(commandId);
+}
+
 public partial class SummonerSpellOptionViewModel(string name, ulong id, string imageFileName) : ViewModelBase
 {
     public string Name { get; } = name;
@@ -1710,6 +2626,7 @@ public partial class SummonerSpellOptionViewModel(string name, ulong id, string 
     public string Label => $"{Name} ({Id})";
     public bool HasIcon => Icon is not null;
     public bool HasNoIcon => Icon is null;
+    public override string ToString() => Name;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasIcon))]
@@ -1785,13 +2702,27 @@ public partial class ProfileMatchViewModel : ViewModelBase
     public IReadOnlyList<MatchAssetViewModel> Items { get; }
     public IReadOnlyList<MatchAwardViewModel> Awards { get; }
     public MatchAwardViewModel? ViewerAward { get; }
+    public IReadOnlyList<MatchAwardViewModel> TeammateAwards => Awards.Where(award => award.IsTeammate).ToList();
+    public IReadOnlyList<MatchAwardViewModel> EnemyAwards => Awards.Where(award => award.IsEnemy).ToList();
+    public IReadOnlyList<MatchAwardGroupViewModel> AwardGroups =>
+        IsArena
+            ? ArenaAwardGroups()
+            : HasTeamSplit
+            ?
+            [
+                new("Teammates", TeammateAwards),
+                new("Enemies", EnemyAwards)
+            ]
+            : [new("Players", Awards)];
     public string Duration { get; }
     public string PlayedAt { get; }
     public bool HasChampionIcon => ChampionIcon is not null;
     public bool HasNoChampionIcon => ChampionIcon is null;
     public bool IsWin => Result == "Win";
+    public bool IsArena => string.Equals(Queue, "Arena", StringComparison.OrdinalIgnoreCase);
     public bool HasItems => Items.Count > 0;
     public bool HasAwards => Awards.Count > 0;
+    public bool HasTeamSplit => TeammateAwards.Count > 0 || EnemyAwards.Count > 0;
     public bool HasViewerAward => ViewerAward is not null;
     public string ItemsLine => HasItems ? "Items" : "Items unavailable";
     public string AwardsLine => HasAwards ? "Danh hieu tran" : "Danh hieu chua du";
@@ -1813,16 +2744,16 @@ public partial class ProfileMatchViewModel : ViewModelBase
         var items = entry.ItemIds
             .Select(itemId => new MatchAssetViewModel(itemId, $"Item {itemId}"))
             .ToList();
-        var awards = MatchAwardScorer.Score(entry.Participants ?? [])
-            .Select(award => MatchAwardViewModel.From(award, champions))
-            .ToList();
-        var viewerKey = entry.Participants?
+        var viewer = entry.Participants?
             .FirstOrDefault(participant => participant.ChampionId == entry.ChampionId
                 && participant.Win == entry.Win
                 && participant.Kills == entry.Kills
                 && participant.Deaths == entry.Deaths
-                && participant.Assists == entry.Assists)
-            ?.PlayerKey;
+                && participant.Assists == entry.Assists);
+        var viewerKey = viewer?.PlayerKey;
+        var awards = MatchAwardScorer.Score(entry.Participants ?? [])
+            .Select(award => MatchAwardViewModel.From(award, champions, viewer?.TeamId))
+            .ToList();
         var viewerAward = string.IsNullOrWhiteSpace(viewerKey)
             ? null
             : awards.FirstOrDefault(award => award.PlayerKey == viewerKey);
@@ -1847,6 +2778,19 @@ public partial class ProfileMatchViewModel : ViewModelBase
     private static string KdaRatio(int kills, int deaths, int assists) =>
         deaths == 0 ? "Perfect" : ((kills + assists) / (double)deaths).ToString("0.00");
 
+    private IReadOnlyList<MatchAwardGroupViewModel> ArenaAwardGroups() =>
+        Awards
+            .GroupBy(award => award.TeamId)
+            .OrderBy(group => group.Min(award => award.Placement > 0 ? award.Placement : int.MaxValue))
+            .ThenBy(group => group.Key)
+            .Select(group =>
+            {
+                var placement = group.Where(award => award.Placement > 0).Select(award => award.Placement).DefaultIfEmpty(0).Min();
+                var title = placement > 0 ? $"Rank {placement} - Team {group.Key}" : $"Team {group.Key}";
+                return new MatchAwardGroupViewModel(title, group.OrderBy(award => award.Rank).ToList());
+            })
+            .ToList();
+
     private static MatchAssetViewModel? SpellAsset(int spellId, IReadOnlyList<SummonerSpellOptionViewModel> spellOptions)
     {
         if (spellId <= 0)
@@ -1867,7 +2811,12 @@ public sealed record MatchAwardViewModel(
     string PlayerKey,
     string PlayerName,
     string Champion,
+    Bitmap? ChampionIcon,
+    int TeamId,
     string Team,
+    int Placement,
+    bool HasKnownSide,
+    bool IsTeammate,
     string Result,
     string Kda,
     string Economy,
@@ -1876,18 +2825,26 @@ public sealed record MatchAwardViewModel(
     string Line,
     string Reason)
 {
-    public static MatchAwardViewModel From(MatchAward award, IReadOnlyDictionary<int, ChampionTileViewModel> champions)
+    public bool HasChampionIcon => ChampionIcon is not null;
+    public bool HasNoChampionIcon => ChampionIcon is null;
+    public bool IsEnemy => HasKnownSide && !IsTeammate;
+
+    public static MatchAwardViewModel From(MatchAward award, IReadOnlyDictionary<int, ChampionTileViewModel> champions, int? viewerTeamId = null)
     {
-        var champion = champions.TryGetValue(award.Player.ChampionId, out var tile)
-            ? tile.Name
-            : award.Player.Champion;
+        var tile = champions.GetValueOrDefault(award.Player.ChampionId);
+        var champion = tile?.Name ?? award.Player.Champion;
         return new(
             award.Kind,
             award.Rank,
             award.Player.PlayerKey,
             award.Player.PlayerName,
             champion,
+            tile?.Icon,
+            award.Player.TeamId,
             $"Team {award.Player.TeamId}",
+            award.Player.Placement,
+            viewerTeamId is not null,
+            viewerTeamId is not null && award.Player.TeamId == viewerTeamId,
             award.Player.Win ? "Win" : "Loss",
             $"{award.Player.Kills}/{award.Player.Deaths}/{award.Player.Assists}",
             $"CS {award.Player.CreepScore} - Gold {award.Player.GoldEarned:N0}",
@@ -1896,6 +2853,26 @@ public sealed record MatchAwardViewModel(
             $"{award.Kind} - {award.Player.PlayerName}",
             $"{champion} - Score {award.Score:N0} - {award.Reason}");
     }
+}
+
+public sealed record MatchAwardGroupViewModel(string Title, IReadOnlyList<MatchAwardViewModel> Awards);
+
+public sealed record ActiveGamePlayerViewModel(
+    string Name,
+    string Champion,
+    string Level,
+    string Kda,
+    string Farm,
+    string Items)
+{
+    public static ActiveGamePlayerViewModel From(LivePlayer player) =>
+        new(
+            string.IsNullOrWhiteSpace(player.SummonerName) ? "Unknown player" : player.SummonerName!,
+            string.IsNullOrWhiteSpace(player.ChampionName) ? "Unknown champion" : player.ChampionName!,
+            player.Level > 0 ? $"Level {player.Level}" : "Level ?",
+            player.Scores is null ? "KDA unavailable" : $"{player.Scores.Kills}/{player.Scores.Deaths}/{player.Scores.Assists}",
+            player.Scores is null ? "CS ?" : $"CS {player.Scores.CreepScore}",
+            player.Items is { Count: > 0 } items ? $"{items.Count} items" : "Items unavailable");
 }
 
 public partial class MatchAssetViewModel(int id, string label, Bitmap? icon = null) : ViewModelBase

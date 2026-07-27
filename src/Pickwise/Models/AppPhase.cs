@@ -6,5 +6,6 @@ public enum AppPhase
     Connected,
     ReadyCheck,
     ChampionSelect,
+    ActiveGame,
     Error
 }

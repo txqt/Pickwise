@@ -49,7 +49,7 @@ public sealed class GameModeIconCache(LocalDiagnosticLog log)
         {
             return new Bitmap(path);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
         {
             log.Info($"Game mode icon cache unreadable: {label}");
             return null;

@@ -52,6 +52,26 @@ _Avoid_: Riot credential, session token, stored summoner identity
 A single Companion Shell view that changes its content based on the current League Client state.
 _Avoid_: dashboard, multi-page navigation
 
+**Game Mode Setup**:
+The part of the Companion Shell that shows the settings needed for the current lobby's game mode.
+_Avoid_: generic form builder, schema UI, lobby screen
+
+**Active Game**:
+The in-match Companion Shell view powered by Riot's local Live Client Data API.
+_Avoid_: overlay, memory reader, live recommendation engine
+
+**Pickrate Sample**:
+A popularity-only aggregate computed from completed match history data.
+_Avoid_: winrate, best choice, automatic rune or augment selection
+
+**ARAM Mayhem Augment**:
+An augment choice available to a player in ARAM Mayhem.
+_Avoid_: argument, rune, item, recommendation
+
+**Augment Pickrate Sample**:
+A popularity-only aggregate of ARAM Mayhem Augments from the Current Summoner's completed ARAM Mayhem matches.
+_Avoid_: winrate, best augment, augment recommendation, automatic augment selection
+
 **Ready Check Alert**:
 A native desktop notification that tells the player a Ready Check needs a response.
 _Avoid_: custom notification system, in-game alert

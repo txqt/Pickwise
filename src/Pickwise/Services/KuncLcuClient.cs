@@ -8,6 +8,7 @@ namespace Pickwise.Services;
 
 public sealed class KuncLcuClient : ILcuClient, IDisposable
 {
+    private const int MatchHistorySampleSize = 20;
     private readonly LocalDiagnosticLog _log;
     private readonly HttpClient _http;
     private readonly Dictionary<long, SummonerProfile?> _summonerProfiles = [];
@@ -38,6 +39,7 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
 
             var ready = await GetOrNull<ReadyCheckState>("lol-matchmaking/v1/ready-check", cancellationToken);
             var lobby = await GetOrNull<LobbyState>("lol-lobby/v2/lobby", cancellationToken);
+            var gameflow = await GetOrNull<GameflowSession>("lol-gameflow/v1/session", cancellationToken);
             var lobbyMembers = lobby?.Members is { Count: > 0 } members
                 ? members
                 : await GetListOrEmpty<LobbyMember>("lol-lobby/v2/lobby/members", cancellationToken);
@@ -50,13 +52,18 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
             var championSelect = await GetOrNull<ChampionSelectSession>("lol-champ-select/v1/session", cancellationToken);
             if (championSelect is not null)
             {
-                var gameflow = await GetOrNull<GameflowSession>("lol-gameflow/v1/session", cancellationToken);
                 var pickable = championSelect.AllowSubsetChampionPicks
                     ? await GetListOrEmpty("lol-lobby-team-builder/champ-select/v1/subset-champion-list", cancellationToken)
                     : await GetListOrEmpty("lol-champ-select/v1/pickable-champion-ids", cancellationToken);
                 var disabled = await GetListOrEmpty("lol-champ-select/v1/disabled-champion-ids", cancellationToken);
                 var trades = await GetListOrEmpty<ChampionTradeRequest>("lol-champ-select/v1/session/trades", cancellationToken);
                 return new(AppPhase.ChampionSelect, summoner, ready, championSelect, gameflow, lobby, lobbyMembers, pickable, disabled, trades, "Champion select");
+            }
+
+            if (string.Equals(gameflow?.Phase, "InProgress", StringComparison.OrdinalIgnoreCase))
+            {
+                var activeGame = await GetActiveGameAsync(cancellationToken);
+                return new(AppPhase.ActiveGame, summoner, ready, null, gameflow, lobby, lobbyMembers, [], [], [], "In game", activeGame);
             }
 
             return new(AppPhase.Connected, summoner, ready, null, null, lobby, lobbyMembers, [], [], [], "Connected");
@@ -90,6 +97,16 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
             .ToList();
     }
 
+    public async Task<ActiveGameState?> GetActiveGameAsync(CancellationToken cancellationToken)
+    {
+        var stats = await GetLiveOrNull<LiveGameStats>("gamestats", cancellationToken);
+        var activePlayer = await GetLiveOrNull<LiveActivePlayer>("activeplayer", cancellationToken);
+        var players = await GetLiveOrNull<List<LivePlayer>>("playerlist", cancellationToken) ?? [];
+        return stats is null && activePlayer is null && players.Count == 0
+            ? null
+            : new(stats, activePlayer, players);
+    }
+
     public async Task<RankedSummary?> GetRankedSummaryAsync(long summonerId, CancellationToken cancellationToken)
     {
         var ranked = await GetOrNull<RankedStats>($"lol-ranked-stats/v1/stats/{summonerId}", cancellationToken);
@@ -110,7 +127,7 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
             return [];
         }
 
-        var history = await GetOrNull<MatchHistoryResponse>($"lol-match-history/v1/products/lol/{Uri.EscapeDataString(puuid)}/matches?begIndex=0&endIndex=8", cancellationToken);
+        var history = await GetOrNull<MatchHistoryResponse>($"lol-match-history/v1/products/lol/{Uri.EscapeDataString(puuid)}/matches?begIndex=0&endIndex={MatchHistorySampleSize}", cancellationToken);
         if (history?.Games?.Games is not { Count: > 0 } games)
         {
             return [];
@@ -128,7 +145,7 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
             }
         }
 
-        return entries;
+        return entries.Take(MatchHistorySampleSize).ToList();
     }
 
     public async Task SendFriendRequestAsync(LobbyMember member, CancellationToken cancellationToken)
@@ -409,7 +426,9 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
                 .ToList(),
             TimeSpan.FromSeconds(game.GameDuration).ToString(@"m\:ss"),
             string.IsNullOrWhiteSpace(game.GameCreationDate) ? "Recent" : game.GameCreationDate!,
-            participants);
+            participants,
+            participant.Stats.PerkIds,
+            participant.Stats.AugmentIds);
     }
 
     private static MatchParticipantPerformance ToParticipantPerformance(MatchHistoryParticipant participant, MatchHistoryPlayer? player)
@@ -418,7 +437,7 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
         return new(
             string.IsNullOrWhiteSpace(player?.Puuid) ? $"participant:{participant.ParticipantId}" : player!.Puuid!,
             PlayerName(player, participant.ParticipantId),
-            participant.TeamId,
+            FirstPositive(participant.PlayerSubteamId, stats.PlayerSubteamId, stats.SubteamId, participant.TeamId),
             stats.Win,
             participant.ChampionId,
             $"Champion {participant.ChampionId}",
@@ -428,8 +447,13 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
             stats.TotalMinionsKilled + stats.NeutralMinionsKilled,
             stats.GoldEarned,
             stats.TotalDamageDealtToChampions,
-            stats.LargestMultiKill);
+            stats.LargestMultiKill,
+            FirstPositive(stats.SubteamPlacement, stats.Placement),
+            stats.AugmentIds);
     }
+
+    private static int FirstPositive(params int[] values) =>
+        values.FirstOrDefault(value => value > 0);
 
     private static string PlayerName(MatchHistoryPlayer? player, int participantId) =>
         !string.IsNullOrWhiteSpace(player?.GameName)
@@ -445,8 +469,26 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
             440 => "Ranked Flex",
             450 => "ARAM",
             480 => "Swiftplay",
+            1750 => "Arena",
+            2400 => "ARAM Mayhem",
             _ => $"Queue {queueId}"
         };
+
+    private async Task<T?> GetLiveOrNull<T>(string endpoint, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<T>($"https://127.0.0.1:2999/liveclientdata/{endpoint}", cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return default;
+        }
+    }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
@@ -543,7 +585,11 @@ public sealed record MatchHistoryParticipant(
     [property: System.Text.Json.Serialization.JsonPropertyName("championId")] int ChampionId,
     [property: System.Text.Json.Serialization.JsonPropertyName("spell1Id")] int Spell1Id,
     [property: System.Text.Json.Serialization.JsonPropertyName("spell2Id")] int Spell2Id,
-    [property: System.Text.Json.Serialization.JsonPropertyName("stats")] MatchHistoryStats? Stats);
+    [property: System.Text.Json.Serialization.JsonPropertyName("stats")] MatchHistoryStats? Stats)
+{
+    [System.Text.Json.Serialization.JsonPropertyName("playerSubteamId")]
+    public int PlayerSubteamId { get; init; }
+}
 
 public sealed record MatchHistoryStats(
     [property: System.Text.Json.Serialization.JsonPropertyName("win")] bool Win,
@@ -561,7 +607,58 @@ public sealed record MatchHistoryStats(
     [property: System.Text.Json.Serialization.JsonPropertyName("item3")] int Item3,
     [property: System.Text.Json.Serialization.JsonPropertyName("item4")] int Item4,
     [property: System.Text.Json.Serialization.JsonPropertyName("item5")] int Item5,
-    [property: System.Text.Json.Serialization.JsonPropertyName("item6")] int Item6);
+    [property: System.Text.Json.Serialization.JsonPropertyName("item6")] int Item6)
+{
+    [System.Text.Json.Serialization.JsonPropertyName("playerAugment1")]
+    public int PlayerAugment1 { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("playerAugment2")]
+    public int PlayerAugment2 { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("playerAugment3")]
+    public int PlayerAugment3 { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("playerAugment4")]
+    public int PlayerAugment4 { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("subteamPlacement")]
+    public int SubteamPlacement { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("placement")]
+    public int Placement { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("playerSubteamId")]
+    public int PlayerSubteamId { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("subteamId")]
+    public int SubteamId { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("perk0")]
+    public int Perk0 { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("perk1")]
+    public int Perk1 { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("perk2")]
+    public int Perk2 { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("perk3")]
+    public int Perk3 { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("perk4")]
+    public int Perk4 { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("perk5")]
+    public int Perk5 { get; init; }
+
+    public IReadOnlyList<int> PerkIds => new[] { Perk0, Perk1, Perk2, Perk3, Perk4, Perk5 }
+        .Where(perkId => perkId > 0)
+        .ToList();
+
+    public IReadOnlyList<int> AugmentIds => new[] { PlayerAugment1, PlayerAugment2, PlayerAugment3, PlayerAugment4 }
+        .Where(augmentId => augmentId > 0)
+        .ToList();
+}
 
 public sealed record MatchHistoryParticipantIdentity(
     [property: System.Text.Json.Serialization.JsonPropertyName("participantId")] int ParticipantId,

@@ -54,7 +54,7 @@ public sealed class SummonerSpellIconCache(LocalDiagnosticLog log)
         {
             return new Bitmap(path);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
         {
             log.Info($"Summoner spell icon cache unreadable: {fileName}");
             return null;

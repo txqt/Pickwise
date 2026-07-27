@@ -43,6 +43,7 @@ AssertQuickBansRespectAvailability();
 AssertTradeCommandsCallLcu();
 AssertMatchAwardsRankAllPlayers();
 AssertCurrentSummonerProfileOpensAndBackReturnsHome();
+AssertArenaMatchDetailGroupsByPlacementTeams();
 AssertProfileMatchDetailExpandsOneAtATime();
 AssertLobbyRendersFromSnapshot();
 AssertLobbyPayloadLoadsEmbeddedMembers();
@@ -52,7 +53,17 @@ AssertLobbyMemberProfileUsesSharedProfile();
 AssertRankedFailureStillOpensProfile();
 AssertAddFriendUsesRiotId();
 AssertAddFriendDisabledWithoutRiotIdOrForLocalPlayer();
-AssertExistingLobbyOpensReadyScreen();
+AssertExistingLobbyShowsGlobalLobbyButton();
+AssertActiveGameNavigationWorks();
+AssertPickrateUsesMatchHistoryPerks();
+AssertAugmentPickrateUsesCurrentSummonerAramMayhemMatches();
+AssertAramMayhemChampionSelectShowsAugmentPickrate();
+AssertAramMayhemLobbyShowsChampionHistory();
+AssertAramMayhemHomeUsesParticipantsFromCurrentMatches();
+AssertAramMayhemAugmentCatalogFailureDoesNotRetryUntilRestart();
+AssertAramMayhemAugmentMarkupFormatsMultipliers();
+AssertAramMayhemAugmentDescriptionParsesAramMayhemPage();
+AssertStableAramMayhemAugmentsDoNotReplaceRows();
 AssertSwiftplayRestrictionBlocksMatchmaking();
 AssertBlankLobbyMemberNameCanUseProfileData();
 AssertPollingPolicyUsesScreenAndPhase();
@@ -60,6 +71,7 @@ AssertLobbyRowsAreReused();
 AssertLobbyRowsUpdateInPlace();
 AssertSummonerIconLoadsAreDeduped();
 AssertLcuModeCapabilitiesDriveModeList();
+AssertGameModeSetupUsesWhitelistedCommands();
 AssertLanePreferencesCanBeSaved();
 AssertQuickplaySetupIsDetectOnly();
 AssertQuickplayEditorSurvivesUnchangedPoll();
@@ -82,6 +94,17 @@ static void Assert(bool condition, string message)
     {
         throw new Exception(message);
     }
+}
+
+static void WaitUntil(Func<bool> condition, string message)
+{
+    var deadline = DateTime.UtcNow.AddSeconds(2);
+    while (!condition() && DateTime.UtcNow < deadline)
+    {
+        Thread.Sleep(20);
+    }
+
+    Assert(condition(), message);
 }
 
 static void AssertConstructorDoesNotBlockOnSlowLcu()
@@ -352,6 +375,10 @@ static void AssertMatchAwardsRankAllPlayers()
     Assert(awards[2].Kind == "Top 3" && awards[2].Rank == 3, "third score is Top 3");
     Assert(awards.Last().Kind == "Top 10" && awards.Last().Rank == 10, "last participant is Top 10");
     Assert(awards.Zip(awards.Skip(1)).All(pair => pair.First.Score >= pair.Second.Score), "match awards are sorted by score");
+    var tile = new ChampionTileViewModel(new Champion(awards[0].Player.ChampionId, "Icon Champ", "", [], ""));
+    tile.Icon = TinyBitmap();
+    var awardViewModel = MatchAwardViewModel.From(awards[0], new Dictionary<int, ChampionTileViewModel> { [tile.Champion.ChampionId] = tile });
+    Assert(awardViewModel.HasChampionIcon, "match detail award exposes champion avatar");
     Assert(MatchAwardScorer.Score([]).Count == 0, "empty match participants do not create awards");
     Assert(MatchAwardScorer.Score([participants[0]]).Count == 0, "single participant does not create MVP");
     Assert(MatchAwardScorer.Score([participants[0] with { TeamId = 0 }]).Count == 0, "missing team data does not create awards");
@@ -376,6 +403,8 @@ static void AssertCurrentSummonerProfileOpensAndBackReturnsHome()
     Assert(viewModel.ProfileMatches[0].Awards.Count == 10, "match detail contains every ranked participant");
     Assert(viewModel.ProfileMatches[0].Awards[0].Team == "Team 100", "match detail rank includes team");
     Assert(viewModel.ProfileMatches[0].Awards[0].Result == "Win", "match detail rank includes result");
+    Assert(viewModel.ProfileMatches[0].AwardGroups.Select(group => group.Title).SequenceEqual(["Teammates", "Enemies"]), "match detail splits awards by side");
+    Assert(viewModel.ProfileMatches[0].AwardGroups.Sum(group => group.Awards.Count) == 10, "match detail side split keeps every participant");
 
     viewModel.BackCommand.Execute(null);
     Assert(viewModel.IsHomeScreen, "profile back returns home");
@@ -406,6 +435,40 @@ static void AssertProfileMatchDetailExpandsOneAtATime()
 
     viewModel.ToggleProfileMatchCommand.Execute(second);
     Assert(!second.IsExpanded, "clicking open match closes detail");
+}
+
+static void AssertArenaMatchDetailGroupsByPlacementTeams()
+{
+    var entry = new MatchHistoryEntry(
+        103,
+        "Ahri",
+        "Arena",
+        true,
+        7,
+        2,
+        11,
+        184,
+        12400,
+        28600,
+        2,
+        4,
+        14,
+        [],
+        "15:00",
+        "Recent",
+        Participants:
+        [
+            new("local-puuid", "Local#NA1", 1, true, 103, "Champion 103", 7, 2, 11, 184, 12400, 28600, 2, 1),
+            new("mate", "Mate", 1, true, 22, "Champion 22", 4, 4, 10, 160, 10300, 18000, 1, 1),
+            new("enemy-a", "Enemy A", 2, false, 64, "Champion 64", 10, 5, 6, 210, 13800, 31200, 3, 2),
+            new("enemy-b", "Enemy B", 2, false, 16, "Champion 16", 1, 7, 18, 44, 7800, 9200, 1, 2)
+        ]);
+
+    var viewModel = ProfileMatchViewModel.From(entry, new Dictionary<int, ChampionTileViewModel>(), []);
+
+    Assert(viewModel.IsArena, "Arena match detail detects Arena queue");
+    Assert(viewModel.AwardGroups.Select(group => group.Title).SequenceEqual(["Rank 1 - Team 1", "Rank 2 - Team 2"]), "Arena match detail groups by placement team");
+    Assert(viewModel.AwardGroups.All(group => group.Awards.Count == 2), "Arena match detail keeps duo teams together");
 }
 
 static void AssertLobbyRendersFromSnapshot()
@@ -485,6 +548,7 @@ static void AssertNoLobbyDoesNotBreakReadyScreen()
     Assert(viewModel.IsReadyScreen, "ready screen opens without lobby");
     Assert(viewModel.CurrentLobby == "No lobby", "missing lobby shows no lobby");
     Assert(viewModel.LobbyMembers.Count == 0, "missing lobby has no members");
+    Assert(!viewModel.HasGameModeSetup, "missing lobby has no generated game mode setup");
 }
 
 static void AssertLobbyMemberProfileUsesSharedProfile()
@@ -536,19 +600,22 @@ static void AssertAddFriendDisabledWithoutRiotIdOrForLocalPlayer()
         "add friend is disabled without Riot ID");
 }
 
-static void AssertExistingLobbyOpensReadyScreen()
+static void AssertExistingLobbyShowsGlobalLobbyButton()
 {
     var viewModel = new MainViewModel(new ProfileLcuClient(), new LocalDiagnosticLog(), TempPreferences());
     Thread.Sleep(100);
 
-    Assert(viewModel.IsReadyScreen, "existing lobby opens ready screen");
+    Assert(viewModel.IsHomeScreen, "existing lobby does not force ready screen");
+    Assert(viewModel.HasCurrentLobby, "existing lobby shows global lobby button");
+    viewModel.OpenCurrentLobbyCommand.Execute(null);
+    Assert(viewModel.IsReadyScreen, "global lobby button opens ready screen");
 }
 
 static void AssertSwiftplayRestrictionBlocksMatchmaking()
 {
     var lcu = new SwiftplayLcuClient();
     var viewModel = new MainViewModel(lcu, new LocalDiagnosticLog(), TempPreferences());
-    Thread.Sleep(100);
+    WaitUntil(() => viewModel.CurrentLobby.StartsWith("Swiftplay", StringComparison.Ordinal), "Swiftplay lobby snapshot loads");
 
     viewModel.StartMatchmakingCommand.Execute(null);
     Thread.Sleep(100);
@@ -635,6 +702,9 @@ static void AssertLcuModeCapabilitiesDriveModeList()
     Assert(viewModel.ModeGroups.Contains("ARAM"), "LCU modes include ARAM group");
     Assert(viewModel.ModeGroups.Contains("TFT"), "LCU modes include TFT group");
     Assert(viewModel.ModeGroups.Contains("Custom"), "LCU modes include Custom group");
+    Assert(!viewModel.VisibleModeGroups.Contains("Summoner's Rift"), "home secondary modes exclude featured Summoner's Rift card");
+    Assert(!viewModel.VisibleModeGroups.Contains("ARAM"), "home secondary modes exclude featured ARAM card");
+    Assert(viewModel.VisibleModeGroups.Contains("TFT"), "home secondary modes keep non-featured groups");
     viewModel.SelectModeGroupCommand.Execute("TFT");
     Assert(viewModel.GameModes.Any(mode => mode.IsTft), "TFT group shows TFT queues");
 }
@@ -643,9 +713,12 @@ static void AssertLanePreferencesCanBeSaved()
 {
     var lcu = new ModeAwareLcuClient(ModeAwareLcuClient.LaneLobby());
     var viewModel = new MainViewModel(lcu, new LocalDiagnosticLog(), TempPreferences());
-    Thread.Sleep(100);
+    WaitUntil(() => viewModel.IsPositionSelectorVisible, "lane lobby shows position selector");
 
-    Assert(viewModel.IsPositionSelectorVisible, "lane lobby shows position selector");
+    Assert(viewModel.HasGameModeSetup, "lane lobby shows generated setup");
+    var setup = viewModel.GameModeSetupSections.Single();
+    Assert(setup.Fields.Count(field => field.IsSelect) == 2, "lane setup generates lane select fields");
+    Assert(setup.Actions.Single().CommandId == GameModeSetupCommandId.SaveLanePreferences, "lane setup uses lane command id");
     Assert(viewModel.SelectedPrimaryPosition == "TOP", "primary lane hydrates from lobby");
     Assert(viewModel.SelectedSecondaryPosition == "JUNGLE", "secondary lane hydrates from lobby");
 
@@ -663,10 +736,27 @@ static void AssertQuickplaySetupIsDetectOnly()
     Thread.Sleep(100);
 
     Assert(viewModel.IsQuickplaySetupVisible, "quickplay lobby shows setup status");
+    Assert(viewModel.HasGameModeSetup, "quickplay lobby shows generated setup");
+    var setup = viewModel.GameModeSetupSections.Single();
+    Assert(setup.Fields.Any(field => field.IsText), "quickplay setup generates status text");
+    Assert(setup.Fields.Any(field => field.IsRowList), "quickplay setup generates slot rows");
+    Assert(setup.Fields.Any(field => field.IsToggle), "quickplay setup generates spell override toggle");
+    Assert(setup.Fields.Count(field => field.IsSelect) == 2, "quickplay setup generates spell selects");
+    Assert(setup.Actions.Any(action => action.CommandId == GameModeSetupCommandId.SaveQuickplaySlots), "quickplay setup uses quickplay command id");
+    Assert(setup.Actions.Any(action => action.CommandId == GameModeSetupCommandId.SaveQuickplaySpellSettings), "quickplay setup uses spell settings command id");
     Assert(viewModel.LobbySetupStatus.Contains("Complete champion and lane setup in League Client"), "quickplay setup is detect-only");
     Assert(viewModel.QuickplaySlots.Count == 2, "quickplay slots are shown");
     Assert(viewModel.QuickplaySlots[0].Champion == "Lee Sin", "quickplay slot shows champion name");
     Assert(viewModel.QuickplaySlots[0].Position == "JUNGLE", "quickplay slot shows lane");
+}
+
+static void AssertGameModeSetupUsesWhitelistedCommands()
+{
+    Assert(GameModeSetupActionViewModel.IsWhitelisted(GameModeSetupCommandId.SaveLanePreferences), "lane setup command is whitelisted");
+    Assert(GameModeSetupActionViewModel.IsWhitelisted(GameModeSetupCommandId.OpenQuickplaySlot), "open quickplay slot command is whitelisted");
+    Assert(GameModeSetupActionViewModel.IsWhitelisted(GameModeSetupCommandId.SaveQuickplaySlots), "save quickplay slots command is whitelisted");
+    Assert(GameModeSetupActionViewModel.IsWhitelisted(GameModeSetupCommandId.SaveQuickplaySpellSettings), "save quickplay spell settings command is whitelisted");
+    Assert(!GameModeSetupActionViewModel.IsWhitelisted((GameModeSetupCommandId)999), "unknown setup command is rejected");
 }
 
 static void AssertQuickplayEditorSurvivesUnchangedPoll()
@@ -832,6 +922,8 @@ static void AssertModeScreenNavigationWorks()
     Assert(viewModel.IsReadyScreen, "mode group selection opens ready screen");
     Assert(viewModel.GameModes.Count == 2, "ARAM group shows ARAM queues");
     Assert(viewModel.GameModes.All(mode => mode.QueueId is 450 or 2400), "ARAM group excludes Summoner's Rift queues");
+    ApplySnapshot(viewModel, new(AppPhase.Connected, null, null, null, null, null, [], [], [], [], "connected"));
+    Assert(viewModel.IsReadyScreen, "no-lobby polling does not reset chosen mode screen");
 
     viewModel.BackCommand.Execute(null);
     Assert(viewModel.IsHomeScreen, "back returns home outside forced LCU phases");
@@ -844,6 +936,338 @@ static void AssertModeScreenNavigationWorks()
     viewModel.Phase = AppPhase.ChampionSelect;
     Assert(viewModel.IsChampionSelectScreen, "champion select phase opens champion select screen");
 }
+
+static void AssertActiveGameNavigationWorks()
+{
+    var viewModel = new MainViewModel(new SlowLcuClient(), new LocalDiagnosticLog(), TempPreferences());
+    var activeGame = new ActiveGameState(
+        new LiveGameStats("ARAM", 125, "Howling Abyss"),
+        new LiveActivePlayer("Local", new LiveChampionStats(9), 1234, new LiveFullRunes([new LiveRune(8005, "Press the Attack")], new LiveRune(8128, "Dark Harvest"))),
+        [
+            new LivePlayer("Local", "Ahri", "ORDER", 9, new LiveScores(3, 1, 4, 42), []),
+            new LivePlayer("Enemy", "Lux", "CHAOS", 8, new LiveScores(2, 2, 5, 38), [])
+        ]);
+
+    ApplySnapshot(viewModel, new(AppPhase.ActiveGame, null, null, null, new GameflowSession(null) { Phase = "InProgress" }, null, [], [], [], [], "in game", activeGame));
+    Assert(viewModel.IsActiveGameScreen, "active game phase opens active game screen");
+    Assert(viewModel.StatusCtaTitle == "Active Game", "active game has top status CTA");
+    Assert(viewModel.ActiveGameTeammates.Count == 1, "active game groups local team");
+    Assert(viewModel.ActiveGameEnemies.Count == 1, "active game groups enemy team");
+
+    viewModel.OpenCurrentSummonerProfileCommand.Execute(null);
+    viewModel.Screen = "Profile";
+    ApplySnapshot(viewModel, new(AppPhase.ActiveGame, null, null, null, new GameflowSession(null) { Phase = "InProgress" }, null, [], [], [], [], "in game", activeGame));
+    Assert(viewModel.IsProfileScreen, "active game polling does not pull user back from profile");
+    viewModel.OpenStatusCommand.Execute(null);
+    Assert(viewModel.IsActiveGameScreen, "status CTA returns to active game");
+}
+
+static void AssertPickrateUsesMatchHistoryPerks()
+{
+    var matches = new[]
+    {
+        new MatchHistoryEntry(103, "Ahri", "ARAM", true, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", PerkIds: [8128, 8005]),
+        new MatchHistoryEntry(103, "Ahri", "ARAM", false, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", PerkIds: [8128]),
+        new MatchHistoryEntry(238, "Zed", "ARAM", true, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", PerkIds: [8112])
+    };
+    var stats = MatchPickrateCalculator.FromPerks(matches, 103);
+    Assert(stats[0].Id == 8128, "pickrate ranks common perks for the requested champion");
+    Assert(stats.First(stat => stat.Id == 8128).Picks == 2, "pickrate counts perk appearances");
+    Assert(stats.First(stat => stat.Id == 8128).Total == 2, "pickrate uses requested champion matches as denominator");
+    Assert(stats.All(stat => stat.Id != 8112), "pickrate does not mix in another champion's rune sample");
+}
+
+static void AssertAugmentPickrateUsesCurrentSummonerAramMayhemMatches()
+{
+    var matches = new[]
+    {
+        new MatchHistoryEntry(103, "Ahri", "ARAM Mayhem", true, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", AugmentIds: [11, 22, 11]),
+        new MatchHistoryEntry(103, "Ahri", "ARAM Mayhem", false, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", AugmentIds: [11, 33]),
+        new MatchHistoryEntry(103, "Ahri", "ARAM", true, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", AugmentIds: [44]),
+        new MatchHistoryEntry(238, "Zed", "ARAM Mayhem", true, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", AugmentIds: [55])
+    };
+    var stats = MatchPickrateCalculator.FromAugments(matches, 103);
+    Assert(stats[0].Id == 11, "augment pickrate ranks common augments for requested ARAM Mayhem champion");
+    Assert(stats.First(stat => stat.Id == 11).Picks == 2, "augment pickrate deduplicates one augment per match");
+    Assert(stats.First(stat => stat.Id == 11).Total == 2, "augment pickrate denominator uses champion ARAM Mayhem matches with augment data");
+    Assert(stats.All(stat => stat.Id is not 44 and not 55), "augment pickrate excludes other queues and champions");
+}
+
+static void AssertAramMayhemChampionSelectShowsAugmentPickrate()
+{
+    var matches = new[]
+    {
+        new MatchHistoryEntry(103, "Ahri", "ARAM Mayhem", true, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", AugmentIds: [11, 22]),
+        new MatchHistoryEntry(103, "Ahri", "ARAM Mayhem", false, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", AugmentIds: [11])
+    };
+    var viewModel = new MainViewModel(new SlowLcuClient(), new LocalDiagnosticLog(), TempPreferences());
+    ApplySnapshot(viewModel, new AramLcuClient(localChampionId: 103, queueId: 2400, puuid: "local-puuid").GetSnapshotAsync(CancellationToken.None).Result);
+    SetPrivateField(viewModel, "_currentSummonerMatchSample", matches);
+    InvokePrivate(viewModel, "RefreshAramMayhemAugmentStats");
+
+    Assert(viewModel.IsAramMayhemAugmentPanelVisible, "ARAM Mayhem selected champion shows augment sample panel");
+    Assert(viewModel.AramMayhemAugmentStats[0].Id == 11, "ARAM Mayhem selected champion shows popular augment stats");
+
+    SetPrivateField(viewModel, "_currentSummonerMatchSample", Array.Empty<MatchHistoryEntry>());
+    SetPrivateField(viewModel, "_currentSummonerMatchSampleLoading", false);
+    InvokePrivate(viewModel, "RefreshAramMayhemAugmentStats");
+    Assert(viewModel.HasNoAramMayhemAugmentStats, "ARAM Mayhem selected champion shows empty augment sample state");
+}
+
+static void AssertAramMayhemLobbyShowsChampionHistory()
+{
+    var matches = new[]
+    {
+        new MatchHistoryEntry(103, "Ahri", "ARAM Mayhem", true, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", AugmentIds: [11, 22]),
+        new MatchHistoryEntry(103, "Ahri", "ARAM Mayhem", false, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", AugmentIds: [11]),
+        new MatchHistoryEntry(222, "Jinx", "ARAM Mayhem", true, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", AugmentIds: [33]),
+        new MatchHistoryEntry(238, "Zed", "ARAM", true, 1, 1, 1, 10, 1000, 1000, 1, 4, 14, [], "10:00", "Recent", AugmentIds: [44])
+    };
+    var viewModel = new MainViewModel(new SlowLcuClient(), new LocalDiagnosticLog(), TempPreferences());
+    ApplySnapshot(viewModel, AramMayhemLobbySnapshot());
+    viewModel.OpenCurrentLobbyCommand.Execute(null);
+    SetPrivateField(viewModel, "_currentSummonerMatchSample", matches);
+    InvokePrivate(viewModel, "RefreshAramMayhemLobbyHistory");
+
+    Assert(viewModel.IsAramMayhemLobbyHistoryVisible, "ARAM Mayhem lobby shows history panel");
+    Assert(viewModel.IsAramMayhemChampionPoolSegment, "ARAM Mayhem lobby defaults to Champion Pool segment");
+    Assert(viewModel.AramMayhemChampionSamples.Select(sample => sample.Champion.Champion.ChampionId).SequenceEqual([103, 222]), "ARAM Mayhem lobby groups champion history");
+    Assert(viewModel.SelectedAramMayhemChampionSample?.Champion.Champion.ChampionId == 103, "ARAM Mayhem lobby selects most sampled champion");
+    Assert(viewModel.AramMayhemLobbyAugmentStats[0].Id == 11, "ARAM Mayhem lobby shows augment stats for selected champion");
+    Assert(viewModel.AramMayhemLobbyAugmentStats[0].Name.Length > 0, "ARAM Mayhem lobby shows augment names");
+
+    viewModel.SelectAramMayhemChampionSampleCommand.Execute(viewModel.AramMayhemChampionSamples[1]);
+    Assert(viewModel.SelectedAramMayhemChampionSample?.Champion.Champion.ChampionId == 222, "ARAM Mayhem lobby lets player select another sampled champion");
+    Assert(viewModel.IsAramMayhemAugmentsSegment, "selecting a champion opens Augments segment");
+    Assert(viewModel.AramMayhemLobbyAugmentStats[0].Id == 33, "ARAM Mayhem lobby refreshes augment stats after champion selection");
+    viewModel.SelectAramMayhemLobbySegmentCommand.Execute("Champion Pool");
+    Assert(viewModel.IsAramMayhemChampionPoolSegment, "ARAM Mayhem lobby can return to Champion Pool segment");
+
+    ApplySnapshot(viewModel, ModeAwareLcuClient.LaneLobby());
+    Assert(!viewModel.IsAramMayhemLobbyHistoryVisible, "non-ARAM Mayhem lobby hides history panel");
+}
+
+static void AssertAramMayhemHomeUsesParticipantsFromCurrentMatches()
+{
+    var matches = new[]
+    {
+        new MatchHistoryEntry(
+            103,
+            "Ahri",
+            "ARAM Mayhem",
+            true,
+            1,
+            1,
+            1,
+            10,
+            1000,
+            1000,
+            1,
+            4,
+            14,
+            [],
+            "10:00",
+            "Recent",
+            Participants:
+            [
+                new("local-puuid", "Local#NA1", 1, true, 103, "Champion 103", 1, 1, 1, 10, 1000, 1000, 1, 1, [11, 22]),
+                new("seen-player", "Seen Player", 2, false, 222, "Champion 222", 2, 2, 2, 20, 2000, 2000, 1, 2, [33]),
+                new("seen-1", "Seen 1", 3, false, 1, "Champion 1", 1, 1, 1, 10, 1000, 1000, 1, 3, [34]),
+                new("seen-2", "Seen 2", 4, false, 2, "Champion 2", 1, 1, 1, 10, 1000, 1000, 1, 4, [35]),
+                new("seen-3", "Seen 3", 5, false, 3, "Champion 3", 1, 1, 1, 10, 1000, 1000, 1, 5, [36]),
+                new("seen-4", "Seen 4", 6, false, 4, "Champion 4", 1, 1, 1, 10, 1000, 1000, 1, 6, [37]),
+                new("seen-5", "Seen 5", 7, false, 5, "Champion 5", 1, 1, 1, 10, 1000, 1000, 1, 7, [38]),
+                new("seen-6", "Seen 6", 8, false, 6, "Champion 6", 1, 1, 1, 10, 1000, 1000, 1, 8, [39]),
+                new("seen-7", "Seen 7", 9, false, 7, "Champion 7", 1, 1, 1, 10, 1000, 1000, 1, 9, [40]),
+                new("seen-8", "Seen 8", 10, false, 8, "Champion 8", 1, 1, 1, 10, 1000, 1000, 1, 10, [41]),
+                new("seen-9", "Seen 9", 11, false, 9, "Champion 9", 1, 1, 1, 10, 1000, 1000, 1, 11, [42]),
+                new("seen-10", "Seen 10", 12, false, 10, "Champion 10", 1, 1, 1, 10, 1000, 1000, 1, 12, [43]),
+                new("seen-11", "Seen 11", 13, false, 11, "Champion 11", 1, 1, 1, 10, 1000, 1000, 1, 13, [45])
+            ]),
+        new MatchHistoryEntry(
+            238,
+            "Zed",
+            "ARAM",
+            true,
+            1,
+            1,
+            1,
+            10,
+            1000,
+            1000,
+            1,
+            4,
+            14,
+            [],
+            "10:00",
+            "Recent",
+            Participants:
+            [
+                new("ignored", "Ignored", 1, true, 238, "Champion 238", 1, 1, 1, 10, 1000, 1000, 1, 1, [44])
+            ])
+    };
+    var viewModel = new MainViewModel(new SlowLcuClient(), new LocalDiagnosticLog(), TempPreferences());
+    SetPrivateField(viewModel, "_currentSummonerMatchSample", matches);
+    InvokePrivate(viewModel, "RefreshAramMayhemGlobalStats");
+
+    Assert(viewModel.AramMayhemGlobalChampionStats.Count == 13, "ARAM Mayhem home champion tier does not cap participant champions");
+    Assert(viewModel.AramMayhemGlobalChampionStats.Select(stat => stat.Champion.Champion.ChampionId).Contains(222), "ARAM Mayhem home champion tier counts participants from current player's matches");
+    Assert(viewModel.AramMayhemGlobalAugmentStats.Any(stat => stat.Id == 11), "ARAM Mayhem home augment tier uses participant augments");
+
+    viewModel.SelectAramMayhemGlobalChampionCommand.Execute(viewModel.AramMayhemGlobalChampionStats.Single(stat => stat.Champion.Champion.ChampionId == 222));
+    Assert(viewModel.AramMayhemGlobalAugmentStats.Single().Id == 33, "ARAM Mayhem home champion selection filters augment tier");
+}
+
+static void AssertAramMayhemAugmentCatalogFailureDoesNotRetryUntilRestart()
+{
+    var matches = new[]
+    {
+        new MatchHistoryEntry(
+            103,
+            "Ahri",
+            "ARAM Mayhem",
+            true,
+            1,
+            1,
+            1,
+            10,
+            1000,
+            1000,
+            1,
+            4,
+            14,
+            [],
+            "10:00",
+            "Recent",
+            Participants:
+            [
+                new("local-puuid", "Local#NA1", 1, true, 103, "Champion 103", 1, 1, 1, 10, 1000, 1000, 1, 1, [999999])
+            ])
+    };
+    var viewModel = new MainViewModel(new SlowLcuClient(), new LocalDiagnosticLog(), TempPreferences());
+    SetPrivateField(viewModel, "_aramMayhemAugmentCatalogLoadAttempted", true);
+    SetPrivateField(viewModel, "_currentSummonerMatchSample", matches);
+
+    InvokePrivate(viewModel, "RefreshAramMayhemGlobalStats");
+
+    Assert(viewModel.AramMayhemGlobalAugmentStats.Single().Name == "Augment 999999", "ARAM Mayhem augment catalog failure keeps fallback names");
+    Assert(!GetPrivateField<bool>(viewModel, "_aramMayhemAugmentCatalogLoading"), "ARAM Mayhem augment catalog failure does not retry until restart");
+}
+
+static void AssertAramMayhemAugmentMarkupFormatsMultipliers()
+{
+    var values = new Dictionary<string, double[]>
+    {
+        ["PercentPen"] = [0.15000000596046448],
+        ["CooldownRefund"] = [1.25]
+    };
+
+    var thread = InvokeStaticPrivate<string>(
+        typeof(AramMayhemAugmentCatalog),
+        "CleanMarkup",
+        "Gain @PercentPen*100@% <armorPen>%i:scaleAPen% Armor Penetration</armorPen> and <magicPen>%i:scaleMPen% Magic Penetration</magicPen>.",
+        values);
+    var mystic = InvokeStaticPrivate<string>(
+        typeof(AramMayhemAugmentCatalog),
+        "CleanMarkup",
+        "{{ Item_Keyword_OnHit }} reduce cooldowns by @CooldownRefund@ seconds and @Missing@.",
+        values);
+    var purist = InvokeStaticPrivate<string>(
+        typeof(AramMayhemAugmentCatalog),
+        "CleanMarkup",
+        "Convert all of your bonus attack speed[/stat] into ability haste[/stat] at a rate of 0.65 ability haste[/stat] per 1% bonus attack speed[/stat].",
+        values);
+    var scopier = InvokeStaticPrivate<string>(
+        typeof(AramMayhemAugmentCatalog),
+        "KnownDescription",
+        "Scopier Weapons");
+    var iconKey = InvokeStaticPrivate<string>(
+        typeof(AramMayhemAugmentCatalog),
+        "IconKey",
+        "/lol-game-data/assets/ASSETS/UX/Cherry/Augments/Icons/MysticPunch_small.png");
+
+    Assert(thread == "Gain 15% Armor Penetration and Magic Penetration.", "ARAM Mayhem augment markup formats multiplier placeholders");
+    Assert(mystic == "On-hit effects reduce cooldowns by 1.25 seconds and .", "ARAM Mayhem augment markup formats simple placeholders and removes missing values");
+    Assert(purist == "Convert all of your bonus attack speed into ability haste at a rate of 0.65 ability haste per 1% bonus attack speed.", "ARAM Mayhem augment markup removes stat closing tags");
+    Assert(scopier == "Gain Attack Range.", "ARAM Mayhem augment markup has fallback for known missing detail rows");
+    Assert(iconKey == "mysticpunch", "ARAM Mayhem augment details can match by icon filename");
+}
+
+static void AssertAramMayhemAugmentDescriptionParsesAramMayhemPage()
+{
+    var html = """
+        <astro-island props="{&quot;description&quot;:[0,&quot;&lt;font color=#F0C200&gt;QUEST:&lt;/font&gt; Hit enemy Champions with your chosen ability the required number of times.&lt;br&gt;&lt;br&gt;&lt;font color=#F0C200&gt;REWARD:&lt;/font&gt; Fire additional missiles per Quest Level.&quot;]}"></astro-island>
+        """;
+    var description = InvokeStaticPrivate<string>(
+        typeof(AramMayhemAugmentCatalog),
+        "DescriptionFromAramMayhemPage",
+        html);
+
+    Assert(description.Contains("QUEST:"), "ARAMMayhem fallback keeps font text");
+    Assert(description.Contains("REWARD:"), "ARAMMayhem fallback keeps reward text");
+    Assert(!description.Contains("<font"), "ARAMMayhem fallback removes escaped HTML tags");
+    Assert(!description.Contains("<br>"), "ARAMMayhem fallback removes escaped line break tags");
+}
+
+static void AssertStableAramMayhemAugmentsDoNotReplaceRows()
+{
+    IReadOnlyList<AramMayhemAugmentSampleViewModel> current =
+    [
+        new(1, "Blade Waltz", 2, 4),
+        new(2, "Mystic Punch", 1, 4)
+    ];
+    IReadOnlyList<AramMayhemAugmentSampleViewModel> same =
+    [
+        new(1, "Blade Waltz", 2, 4),
+        new(2, "Mystic Punch", 1, 4)
+    ];
+    IReadOnlyList<AramMayhemAugmentSampleViewModel> renamed =
+    [
+        new(1, "Blade Waltz", 2, 4),
+        new(2, "Augment 2", 1, 4)
+    ];
+
+    var stable = InvokeStaticPrivate<IReadOnlyList<AramMayhemAugmentSampleViewModel>>(
+        typeof(MainViewModel),
+        "StableAugmentStats",
+        current,
+        same);
+    var changed = InvokeStaticPrivate<IReadOnlyList<AramMayhemAugmentSampleViewModel>>(
+        typeof(MainViewModel),
+        "StableAugmentStats",
+        current,
+        renamed);
+
+    Assert(ReferenceEquals(stable, current), "unchanged ARAM Mayhem augment polling preserves hovered rows");
+    Assert(ReferenceEquals(changed, renamed), "changed ARAM Mayhem augment polling replaces rows");
+}
+
+static LcuSnapshot AramMayhemLobbySnapshot()
+{
+    var summoner = new CurrentSummoner(1, "Local", "Local", "NA1", 30, 11, "local-puuid");
+    var local = new LobbyMember(1, "Local", "Local", "NA1", "local-puuid", 11, 11, 30, true, true, null, null, null);
+    var lobby = new LobbyState(true, new LobbyGameConfig(2400, "ARAM"), [local], null)
+    {
+        LocalMember = local
+    };
+    return new LcuSnapshot(AppPhase.Connected, summoner, null, null, null, lobby, [local], [], [], [], "connected");
+}
+
+static void SetPrivateField(object target, string name, object value) =>
+    target.GetType().GetField(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+        .SetValue(target, value);
+
+static T GetPrivateField<T>(object target, string name) =>
+    (T)target.GetType().GetField(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+        .GetValue(target)!;
+
+static void InvokePrivate(object target, string name) =>
+    target.GetType().GetMethod(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+        .Invoke(target, []);
+
+static T InvokeStaticPrivate<T>(Type type, string name, params object[] parameters) =>
+    (T)type.GetMethod(name, System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
+        .Invoke(null, parameters)!;
 
 static void AssertGameModeIconCachePathWorks()
 {
@@ -1178,7 +1602,12 @@ sealed class FiveVFiveLcuClient(
     }
 }
 
-sealed class AramLcuClient(int localChampionId, int queueId = 450, string gameMode = "ARAM") : ILcuClient
+sealed class AramLcuClient(
+    int localChampionId,
+    int queueId = 450,
+    string gameMode = "ARAM",
+    IReadOnlyList<MatchHistoryEntry>? matchHistory = null,
+    string? puuid = null) : ILcuClient
 {
     public int? PickedChampionId { get; private set; }
     public int? SwappedChampionId { get; private set; }
@@ -1202,8 +1631,12 @@ sealed class AramLcuClient(int localChampionId, int queueId = 450, string gameMo
             BenchChampions = [new ChampionSelectBenchChampion(222), new ChampionSelectBenchChampion(145)]
         };
         var gameflow = new GameflowSession(new GameflowGameData(new GameflowQueue(queueId, queueId, gameMode)));
-        return Task.FromResult(new LcuSnapshot(AppPhase.ChampionSelect, null, null, session, gameflow, null, [], [103, 222, 145], [], [], "aram"));
+        var summoner = puuid is null ? null : new CurrentSummoner(1, "Local", "Local", "NA1", 30, 11, puuid);
+        return Task.FromResult(new LcuSnapshot(AppPhase.ChampionSelect, summoner, null, session, gameflow, null, [], [103, 222, 145], [], [], "aram"));
     }
+
+    public Task<IReadOnlyList<MatchHistoryEntry>> GetMatchHistoryAsync(string puuid, CancellationToken cancellationToken) =>
+        Task.FromResult(matchHistory ?? []);
 
     public Task<SummonerProfile?> GetSummonerProfileAsync(long summonerId, CancellationToken cancellationToken) => Task.FromResult<SummonerProfile?>(null);
     public Task<RankedSummary?> GetRankedSummaryAsync(long summonerId, CancellationToken cancellationToken) => Task.FromResult<RankedSummary?>(null);

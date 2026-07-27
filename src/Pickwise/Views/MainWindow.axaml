@@ -8,9 +8,50 @@
         x:Name="Root"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Width="520"
-        Height="720"
+        Width="1040"
+        Height="820"
+        MinWidth="860"
+        MinHeight="720"
+        MaxHeight="900"
         Title="Pickwise">
+
+    <Window.Resources>
+        <DataTemplate x:Key="AramMayhemAugmentDetailTemplate" x:DataType="vm:AramMayhemAugmentSampleViewModel">
+            <Border Background="#071312"
+                    BorderBrush="{Binding RarityColor}"
+                    BorderThickness="3"
+                    CornerRadius="12"
+                    Padding="18"
+                    Width="260">
+                <StackPanel Spacing="10" HorizontalAlignment="Center">
+                    <Image Source="{Binding Icon}"
+                           Width="56"
+                           Height="56"
+                           HorizontalAlignment="Center"
+                           Stretch="Uniform"
+                           IsVisible="{Binding HasIcon}" />
+                    <TextBlock Text="{Binding Name}"
+                               Foreground="White"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Rarity}"
+                               Foreground="{Binding RarityColor}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               TextAlignment="Center"
+                               IsVisible="{Binding HasRarity}" />
+                    <TextBlock Text="{Binding Description}"
+                               Foreground="#e5e7eb"
+                               FontSize="13"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding HasDescription}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
 
     <Grid>
     <ScrollViewer>
@@ -26,21 +67,226 @@
                         VerticalAlignment="Top" />
             </Grid>
 
+            <Button Command="{Binding OpenStatusCommand}"
+                    Padding="0"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    IsVisible="{Binding HasStatusCta}">
+                <Border Background="#111"
+                        CornerRadius="8"
+                        Padding="16">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding StatusCtaTitle}"
+                                       Foreground="White"
+                                       FontWeight="SemiBold"
+                                       FontSize="16" />
+                            <TextBlock Text="{Binding StatusCtaDescription}"
+                                       Foreground="#d1d5db"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1"
+                                   Text="Open"
+                                   Foreground="White"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </Button>
+
             <StackPanel Spacing="18" IsVisible="{Binding IsHomeScreen}">
-                <Button Command="{Binding OpenCurrentSummonerProfileCommand}"
-                        Padding="0"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        HorizontalContentAlignment="Stretch">
-                    <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="Current Summoner" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding Summoner}" />
+                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="14" IsVisible="{Binding IsCurrentSummonerHomeTab}">
+                    <Button Command="{Binding OpenCurrentSummonerProfileCommand}"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            HorizontalContentAlignment="Stretch">
+                        <Border Background="#f5f5f5" CornerRadius="12" Padding="16" MinHeight="74">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Current Summoner" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Summoner}" />
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                    <Button Grid.Column="1"
+                            Command="{Binding SelectHomeTabCommand}"
+                            CommandParameter="ARAM Mayhem"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            HorizontalContentAlignment="Stretch">
+                        <Border Background="#f5f5f5" CornerRadius="12" Padding="16" MinHeight="74">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="ARAM Mayhem" FontWeight="SemiBold" />
+                                <TextBlock Text="Stats" />
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                </Grid>
+
+                <Grid RowDefinitions="Auto,*"
+                      RowSpacing="18"
+                      IsVisible="{Binding IsAramMayhemHomeTab}">
+                    <Button Content="Back"
+                            Command="{Binding SelectHomeTabCommand}"
+                            CommandParameter="Current Summoner"
+                            HorizontalAlignment="Left" />
+
+                    <Border Grid.Row="1"
+                            Background="#f5f5f5"
+                            CornerRadius="12"
+                            Padding="16">
+                        <StackPanel Spacing="12">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="ARAM Mayhem"
+                                           FontWeight="SemiBold"
+                                           FontSize="18" />
+                            </StackPanel>
+                        <TextBlock Text="{Binding AramMayhemGlobalEmptyText}"
+                                   Foreground="#6b7280"
+                                   IsVisible="{Binding HasNoAramMayhemGlobalStats}" />
+                        <Grid ColumnDefinitions="2*,3*" ColumnSpacing="14" IsVisible="{Binding HasAramMayhemGlobalChampionStats}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Champion Tier List"
+                                           FontSize="12"
+                                           Foreground="#6b7280"
+                                           FontWeight="SemiBold" />
+                                <ListBox ItemsSource="{Binding AramMayhemGlobalChampionStats}"
+                                         MaxHeight="560"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         Padding="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AramMayhemGlobalChampionViewModel">
+                                            <Button Command="{Binding #Root.DataContext.SelectAramMayhemGlobalChampionCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="0"
+                                                    Margin="0,0,0,6"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    HorizontalContentAlignment="Stretch">
+                                                <Border Background="White"
+                                                        BorderBrush="#e5e7eb"
+                                                        BorderThickness="1"
+                                                        CornerRadius="8"
+                                                        Padding="10">
+                                                    <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="10">
+                                                        <Grid Width="32" Height="32">
+                                                            <Image Source="{Binding Icon}"
+                                                                   Width="32"
+                                                                   Height="32"
+                                                                   Stretch="UniformToFill"
+                                                                   IsVisible="{Binding HasIcon}" />
+                                                            <Border Background="#f5f5f5"
+                                                                    BorderBrush="#e5e7eb"
+                                                                    BorderThickness="1"
+                                                                    IsVisible="{Binding HasNoIcon}">
+                                                                <TextBlock Text="?"
+                                                                           Foreground="#6b7280"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center" />
+                                                            </Border>
+                                                        </Grid>
+                                                        <StackPanel Grid.Column="1" Spacing="2">
+                                                            <TextBlock Text="{Binding Name}"
+                                                                       FontWeight="SemiBold"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="2" Spacing="2" HorizontalAlignment="Right">
+                                                            <TextBlock Text="{Binding SamplesText}"
+                                                                       FontSize="12"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="#374151"
+                                                                       TextAlignment="Right" />
+                                                            <TextBlock Text="{Binding WinrateText}"
+                                                                       FontSize="12"
+                                                                       Foreground="#6b7280"
+                                                                       TextAlignment="Right" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="8">
+                                <TextBlock Text="{Binding AramMayhemGlobalAugmentTitle}"
+                                           FontSize="12"
+                                           Foreground="#6b7280"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="No augment sample"
+                                           Foreground="#6b7280"
+                                           IsVisible="{Binding HasNoAramMayhemGlobalAugmentStats}" />
+                                <ItemsControl ItemsSource="{Binding AramMayhemGlobalAugmentStats}"
+                                              HorizontalAlignment="Stretch"
+                                              IsVisible="{Binding HasAramMayhemGlobalAugmentStats}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AramMayhemAugmentSampleViewModel">
+                                            <Border Background="White"
+                                                    BorderBrush="#e5e7eb"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="0"
+                                                    HorizontalAlignment="Stretch"
+                                                    Margin="0,0,0,6">
+                                                <ToolTip.Tip>
+                                                    <ContentControl Content="{Binding}"
+                                                                    ContentTemplate="{StaticResource AramMayhemAugmentDetailTemplate}" />
+                                                </ToolTip.Tip>
+                                                <Button Padding="10"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Stretch">
+                                                    <Button.Flyout>
+                                                        <Flyout>
+                                                            <ContentControl Content="{Binding}"
+                                                                            ContentTemplate="{StaticResource AramMayhemAugmentDetailTemplate}" />
+                                                        </Flyout>
+                                                    </Button.Flyout>
+                                                    <Grid ColumnDefinitions="44,*" ColumnSpacing="10" HorizontalAlignment="Stretch">
+                                                        <Border Width="36"
+                                                                Height="36"
+                                                                Background="{Binding RarityBackground}"
+                                                                BorderBrush="{Binding RarityColor}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="8">
+                                                            <Grid>
+                                                                <Image Source="{Binding Icon}"
+                                                                       Width="28"
+                                                                       Height="28"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       Stretch="UniformToFill"
+                                                                       IsVisible="{Binding HasIcon}" />
+                                                                <TextBlock Text="{Binding Badge}"
+                                                                           Foreground="#f5f5f5"
+                                                                           FontSize="11"
+                                                                           FontWeight="SemiBold"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"
+                                                                           IsVisible="{Binding HasNoIcon}" />
+                                                            </Grid>
+                                                        </Border>
+                                                        <StackPanel Grid.Column="1" Spacing="3">
+                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#111" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Button>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Grid>
                         </StackPanel>
                     </Border>
-                </Button>
+                </Grid>
 
-                <Border Background="#f5f5f5" CornerRadius="12" Padding="18">
+                <Border Background="#f5f5f5" CornerRadius="12" Padding="18" IsVisible="{Binding IsCurrentSummonerHomeTab}">
                     <StackPanel Spacing="16">
                         <TextBlock Text="Mode Selection" FontWeight="SemiBold" />
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
@@ -134,7 +380,7 @@
                                 </Grid>
                             </Button>
                         </Grid>
-                        <ItemsControl ItemsSource="{Binding ModeGroups}">
+                        <ItemsControl ItemsSource="{Binding VisibleModeGroups}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel />
@@ -164,9 +410,11 @@
                 </Border>
             </StackPanel>
 
-            <StackPanel Spacing="18" IsVisible="{Binding IsReadyScreen}">
+            <Grid RowDefinitions="Auto,*" RowSpacing="18" IsVisible="{Binding IsReadyScreen}">
                 <Button Content="Back" Command="{Binding BackCommand}" HorizontalAlignment="Left" />
 
+                <Grid Grid.Row="1" ColumnDefinitions="2*,3*" ColumnSpacing="18">
+                    <StackPanel Grid.Column="0" Spacing="18">
                 <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
                     <StackPanel Spacing="10">
                         <TextBlock Text="Mode Selection" FontWeight="SemiBold" />
@@ -185,64 +433,117 @@
                             <Button Content="Create Lobby" Command="{Binding CreateLobbyCommand}" />
                             <Button Content="Leave Lobby" Command="{Binding LeaveLobbyCommand}" />
                         </StackPanel>
-                        <StackPanel Spacing="8" IsVisible="{Binding IsPositionSelectorVisible}">
-                            <TextBlock Text="Lane Preferences" FontWeight="SemiBold" />
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                                <ComboBox ItemsSource="{Binding PositionOptions}"
-                                          SelectedItem="{Binding SelectedPrimaryPosition}" />
-                                <ComboBox Grid.Column="1"
-                                          ItemsSource="{Binding PositionOptions}"
-                                          SelectedItem="{Binding SelectedSecondaryPosition}" />
-                            </Grid>
-                            <Button Content="Save Lanes"
-                                    Command="{Binding SavePositionsCommand}"
-                                    HorizontalAlignment="Left" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding LobbySetupStatus}"
-                                   FontSize="12"
-                                   Foreground="#6b7280"
-                                   TextWrapping="Wrap"
-                                   IsVisible="{Binding IsQuickplaySetupVisible}" />
-                        <ItemsControl ItemsSource="{Binding QuickplaySlots}"
-                                      IsVisible="{Binding HasQuickplaySlots}">
+                        <ItemsControl ItemsSource="{Binding GameModeSetupSections}"
+                                      IsVisible="{Binding HasGameModeSetup}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:QuickplaySlotViewModel">
-                                    <Button Command="{Binding #Root.DataContext.OpenQuickplaySlotCommand}"
-                                            CommandParameter="{Binding}"
-                                            Padding="0"
-                                            Margin="0,3"
-                                            Background="Transparent"
-                                            BorderThickness="0"
-                                            HorizontalContentAlignment="Stretch">
-                                        <Border Background="White"
-                                                BorderBrush="#e5e7eb"
-                                                BorderThickness="1"
-                                                CornerRadius="8"
-                                                Padding="10">
-                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                                                <TextBlock Text="{Binding Slot}"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="#374151"
-                                                           VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding Champion}"
-                                                           Foreground="#111"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="2"
-                                                           Text="{Binding Position}"
-                                                           Foreground="#6b7280"
-                                                           FontWeight="SemiBold"
-                                                           VerticalAlignment="Center" />
-                                            </Grid>
-                                        </Border>
-                                    </Button>
+                                <DataTemplate x:DataType="vm:GameModeSetupSectionViewModel">
+                                    <StackPanel Spacing="8" Margin="0,6">
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                        <ItemsControl ItemsSource="{Binding Fields}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:GameModeSetupFieldViewModel">
+                                                    <StackPanel Spacing="6" Margin="0,2">
+                                                        <TextBlock Text="{Binding Text}"
+                                                                   FontSize="12"
+                                                                   Foreground="#6b7280"
+                                                                   TextWrapping="Wrap"
+                                                                   IsVisible="{Binding IsText}" />
+                                                        <StackPanel Spacing="4" IsVisible="{Binding IsSelect}">
+                                                            <TextBlock Text="{Binding Label}"
+                                                                       FontSize="12"
+                                                                       Foreground="#6b7280"
+                                                                       FontWeight="SemiBold" />
+                                                            <ComboBox ItemsSource="{Binding Options}"
+                                                                      SelectedItem="{Binding SelectedValue}" />
+                                                        </StackPanel>
+                                                        <CheckBox Content="{Binding Label}"
+                                                                  IsChecked="{Binding IsChecked}"
+                                                                  IsVisible="{Binding IsToggle}" />
+                                                        <ItemsControl ItemsSource="{Binding RowItems}"
+                                                                      IsVisible="{Binding IsRowList}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:QuickplaySlotViewModel">
+                                                                    <Button Command="{Binding #Root.DataContext.OpenQuickplaySlotCommand}"
+                                                                            CommandParameter="{Binding}"
+                                                                            Padding="0"
+                                                                            Margin="0,3"
+                                                                            Background="Transparent"
+                                                                            BorderThickness="0"
+                                                                            HorizontalContentAlignment="Stretch">
+                                                                        <Border Background="White"
+                                                                                BorderBrush="#e5e7eb"
+                                                                                BorderThickness="1"
+                                                                                CornerRadius="8"
+                                                                                Padding="10">
+                                                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                                                <TextBlock Text="{Binding Slot}"
+                                                                                           FontWeight="SemiBold"
+                                                                                           Foreground="#374151"
+                                                                                           VerticalAlignment="Center" />
+                                                                                <TextBlock Grid.Column="1"
+                                                                                           Text="{Binding Champion}"
+                                                                                           Foreground="#111"
+                                                                                           TextTrimming="CharacterEllipsis"
+                                                                                           VerticalAlignment="Center" />
+                                                                                <TextBlock Grid.Column="2"
+                                                                                           Text="{Binding Position}"
+                                                                                           Foreground="#6b7280"
+                                                                                           FontWeight="SemiBold"
+                                                                                           VerticalAlignment="Center" />
+                                                                            </Grid>
+                                                                        </Border>
+                                                                    </Button>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <ItemsControl ItemsSource="{Binding Actions}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" Spacing="10" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:GameModeSetupActionViewModel">
+                                                    <StackPanel>
+                                                        <Button Content="{Binding Label}"
+                                                                Command="{Binding #Root.DataContext.SavePositionsCommand}"
+                                                                IsVisible="{Binding IsSaveLanePreferences}" />
+                                                        <Button Content="{Binding Label}"
+                                                                Command="{Binding #Root.DataContext.SaveQuickplaySlotsCommand}"
+                                                                IsVisible="{Binding IsSaveQuickplaySlots}" />
+                                                        <Button Content="{Binding Label}"
+                                                                Command="{Binding #Root.DataContext.SaveSettingsCommand}"
+                                                                IsVisible="{Binding IsSaveQuickplaySpellSettings}" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>
                 </Border>
 
+                <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Ready Check" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding ReadyCheck}" />
+                        <WrapPanel>
+                            <Button Content="Find Match" Command="{Binding StartMatchmakingCommand}" Margin="0,0,8,8" />
+                            <Button Content="Cancel Search" Command="{Binding CancelMatchmakingCommand}" Margin="0,0,8,8" />
+                            <Button Content="Accept" Command="{Binding AcceptCommand}" Margin="0,0,8,8" />
+                            <Button Content="Decline" Command="{Binding DeclineCommand}" Margin="0,0,8,8" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Spacing="18">
                 <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
                     <StackPanel Spacing="10">
                         <TextBlock Text="Current Lobby" FontWeight="SemiBold" />
@@ -298,19 +599,206 @@
                     </StackPanel>
                 </Border>
 
-                <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="Ready Check" FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding ReadyCheck}" />
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Button Content="Find Match" Command="{Binding StartMatchmakingCommand}" />
-                            <Button Content="Cancel Search" Command="{Binding CancelMatchmakingCommand}" />
-                            <Button Content="Accept" Command="{Binding AcceptCommand}" />
-                            <Button Content="Decline" Command="{Binding DeclineCommand}" />
+                <Border Background="#f5f5f5"
+                        CornerRadius="12"
+                        Padding="16"
+                        IsVisible="{Binding IsAramMayhemLobbyHistoryVisible}">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="ARAM Mayhem History" FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Champion Pool"
+                                    Command="{Binding SelectAramMayhemLobbySegmentCommand}"
+                                    CommandParameter="Champion Pool" />
+                            <Button Content="Augments"
+                                    Command="{Binding SelectAramMayhemLobbySegmentCommand}"
+                                    CommandParameter="Augments" />
                         </StackPanel>
+                        <TextBlock Text="{Binding AramMayhemLobbyHistoryEmptyText}"
+                                   Foreground="#6b7280"
+                                   IsVisible="{Binding HasNoAramMayhemChampionSamples}" />
+                        <StackPanel Spacing="8" IsVisible="{Binding IsAramMayhemChampionPoolSegment}">
+                            <TextBlock Text="Champion Pool" FontSize="12" Foreground="#6b7280" FontWeight="SemiBold" />
+                            <ItemsControl ItemsSource="{Binding AramMayhemChampionSamples}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:AramMayhemChampionSampleViewModel">
+                                        <Button Command="{Binding #Root.DataContext.SelectAramMayhemChampionSampleCommand}"
+                                                CommandParameter="{Binding}"
+                                                Padding="0"
+                                                Margin="0,0,8,8"
+                                                Width="220"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                HorizontalContentAlignment="Stretch">
+                                            <Border Background="White"
+                                                    BorderBrush="#e5e7eb"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="10">
+                                                <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="10">
+                                                    <Grid Width="32" Height="32">
+                                                        <Image Source="{Binding Champion.Icon}"
+                                                               Width="32"
+                                                               Height="32"
+                                                               Stretch="UniformToFill"
+                                                               IsVisible="{Binding Champion.HasIcon}" />
+                                                        <Border Background="#f5f5f5"
+                                                                BorderBrush="#e5e7eb"
+                                                                BorderThickness="1"
+                                                                IsVisible="{Binding Champion.HasNoIcon}">
+                                                            <TextBlock Text="?"
+                                                                       Foreground="#6b7280"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center" />
+                                                        </Border>
+                                                    </Grid>
+                                                    <StackPanel Grid.Column="1" Spacing="2">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding MatchesText}" FontSize="12" Foreground="#6b7280" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="Open"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#374151"
+                                                               VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                        <Grid ColumnDefinitions="2*,3*" ColumnSpacing="14" IsVisible="{Binding IsAramMayhemAugmentsSegment}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Popular Champions" FontSize="12" Foreground="#6b7280" FontWeight="SemiBold" />
+                                <ItemsControl ItemsSource="{Binding AramMayhemChampionSamples}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AramMayhemChampionSampleViewModel">
+                                            <Button Command="{Binding #Root.DataContext.SelectAramMayhemChampionSampleCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="0"
+                                                    Margin="0,0,0,6"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    HorizontalContentAlignment="Stretch">
+                                                <Border Background="White"
+                                                        BorderBrush="#e5e7eb"
+                                                        BorderThickness="1"
+                                                        CornerRadius="8"
+                                                        Padding="10">
+                                                    <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="10">
+                                                        <Grid Width="32" Height="32">
+                                                            <Image Source="{Binding Champion.Icon}"
+                                                                   Width="32"
+                                                                   Height="32"
+                                                                   Stretch="UniformToFill"
+                                                                   IsVisible="{Binding Champion.HasIcon}" />
+                                                            <Border Background="#f5f5f5"
+                                                                    BorderBrush="#e5e7eb"
+                                                                    BorderThickness="1"
+                                                                    IsVisible="{Binding Champion.HasNoIcon}">
+                                                                <TextBlock Text="?"
+                                                                           Foreground="#6b7280"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center" />
+                                                            </Border>
+                                                        </Grid>
+                                                        <StackPanel Grid.Column="1" Spacing="2">
+                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                            <TextBlock Text="{Binding MatchesText}" FontSize="12" Foreground="#6b7280" />
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="Selected"
+                                                                   FontSize="12"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="#374151"
+                                                                   VerticalAlignment="Center"
+                                                                   IsVisible="{Binding IsSelected}" />
+                                                    </Grid>
+                                                </Border>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="8">
+                                <TextBlock Text="{Binding AramMayhemLobbyAugmentTitle}" FontSize="12" Foreground="#6b7280" FontWeight="SemiBold" />
+                                <TextBlock Text="No ARAM Mayhem augment sample"
+                                           Foreground="#6b7280"
+                                           IsVisible="{Binding HasNoAramMayhemLobbyAugmentStats}" />
+                                <ItemsControl ItemsSource="{Binding AramMayhemLobbyAugmentStats}"
+                                              HorizontalAlignment="Stretch"
+                                              IsVisible="{Binding HasAramMayhemLobbyAugmentStats}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AramMayhemAugmentSampleViewModel">
+                                            <Border Background="White"
+                                                    BorderBrush="#e5e7eb"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="0"
+                                                    HorizontalAlignment="Stretch"
+                                                    Margin="0,0,0,6">
+                                                <ToolTip.Tip>
+                                                    <ContentControl Content="{Binding}"
+                                                                    ContentTemplate="{StaticResource AramMayhemAugmentDetailTemplate}" />
+                                                </ToolTip.Tip>
+                                                <Button Padding="10"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Stretch">
+                                                    <Button.Flyout>
+                                                        <Flyout>
+                                                            <ContentControl Content="{Binding}"
+                                                                            ContentTemplate="{StaticResource AramMayhemAugmentDetailTemplate}" />
+                                                        </Flyout>
+                                                    </Button.Flyout>
+                                                    <Grid ColumnDefinitions="44,*" ColumnSpacing="10" HorizontalAlignment="Stretch">
+                                                        <Border Width="36"
+                                                                Height="36"
+                                                                Background="{Binding RarityBackground}"
+                                                                BorderBrush="{Binding RarityColor}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="8">
+                                                            <Grid>
+                                                                <Image Source="{Binding Icon}"
+                                                                       Width="28"
+                                                                       Height="28"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       Stretch="UniformToFill"
+                                                                       IsVisible="{Binding HasIcon}" />
+                                                                <TextBlock Text="{Binding Badge}"
+                                                                           Foreground="#f5f5f5"
+                                                                           FontSize="11"
+                                                                           FontWeight="SemiBold"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"
+                                                                           IsVisible="{Binding HasNoIcon}" />
+                                                            </Grid>
+                                                        </Border>
+                                                        <StackPanel Grid.Column="1" Spacing="3">
+                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#111" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Button>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Grid>
                     </StackPanel>
                 </Border>
-            </StackPanel>
+
+                    </StackPanel>
+                </Grid>
+            </Grid>
 
             <StackPanel Spacing="18" IsVisible="{Binding IsProfileScreen}">
                 <Button Content="Back" Command="{Binding BackCommand}" HorizontalAlignment="Left" />
@@ -389,8 +877,9 @@
                                                     Padding="0"
                                                     Background="Transparent"
                                                     BorderThickness="0"
+                                                    HorizontalAlignment="Stretch"
                                                     HorizontalContentAlignment="Stretch">
-                                                <Grid ColumnDefinitions="42,*,Auto" ColumnSpacing="10">
+                                                <Grid ColumnDefinitions="42,2*,*,*" ColumnSpacing="10" HorizontalAlignment="Stretch">
                                                     <Grid Width="36" Height="36">
                                                         <Image Source="{Binding ChampionIcon}"
                                                                Width="36"
@@ -422,10 +911,13 @@
                                                         </StackPanel>
                                                         <TextBlock Text="{Binding Queue}" FontSize="12" Foreground="#6b7280" TextWrapping="Wrap" />
                                                     </StackPanel>
-                                                    <StackPanel Grid.Column="2" Spacing="2" HorizontalAlignment="Right">
-                                                        <TextBlock Text="{Binding Result}" FontWeight="SemiBold" Foreground="#374151" TextAlignment="Right" />
+                                                    <StackPanel Grid.Column="2" Spacing="2">
+                                                        <TextBlock Text="{Binding Result}" FontWeight="SemiBold" Foreground="#374151" />
+                                                        <TextBlock Text="{Binding Duration}" FontSize="12" Foreground="#6b7280" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="3" Spacing="2" HorizontalAlignment="Right">
                                                         <TextBlock Text="{Binding Kda}" FontSize="12" Foreground="#374151" TextAlignment="Right" />
-                                                        <TextBlock Text="{Binding Duration}" FontSize="12" Foreground="#6b7280" TextAlignment="Right" />
+                                                        <TextBlock Text="{Binding PlayedAt}" FontSize="12" Foreground="#6b7280" TextAlignment="Right" />
                                                     </StackPanel>
                                                 </Grid>
                                             </Button>
@@ -485,12 +977,80 @@
                                                         </StackPanel>
                                                     </Grid>
                                                     <Button Grid.Row="2"
-                                                            Content="Chi tiet"
+                                                            Content="Details"
                                                             Command="{Binding #Root.DataContext.OpenProfileMatchDetailCommand}"
                                                             CommandParameter="{Binding}"
                                                             HorizontalAlignment="Left"
                                                             IsVisible="{Binding HasAwards}" />
                                             </Grid>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Spacing="18" IsVisible="{Binding IsActiveGameScreen}">
+                <Button Content="Back" Command="{Binding BackCommand}" HorizontalAlignment="Left" />
+
+                <Border Background="#f5f5f5" CornerRadius="12" Padding="16">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Active Game" FontWeight="SemiBold" Foreground="#111" />
+                        <TextBlock Text="{Binding ActiveGame}" Foreground="#6b7280" />
+                        <Border Background="White"
+                                BorderBrush="#e5e7eb"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="You" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding ActiveGamePlayer}" Foreground="#374151" />
+                                <TextBlock Text="{Binding ActiveGameRunes}" Foreground="#6b7280" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="#f5f5f5" CornerRadius="12" Padding="16" IsVisible="{Binding HasActiveGameTeammates}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Teammates" FontWeight="SemiBold" />
+                        <ItemsControl ItemsSource="{Binding ActiveGameTeammates}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ActiveGamePlayerViewModel">
+                                    <Border Background="White" BorderBrush="#e5e7eb" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,6">
+                                        <Grid ColumnDefinitions="2*,*,*,*" ColumnSpacing="10">
+                                            <StackPanel Spacing="2">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding Champion}" Foreground="#6b7280" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding Level}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Kda}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Farm}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="#f5f5f5" CornerRadius="12" Padding="16" IsVisible="{Binding HasActiveGameEnemies}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Enemies" FontWeight="SemiBold" />
+                        <ItemsControl ItemsSource="{Binding ActiveGameEnemies}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ActiveGamePlayerViewModel">
+                                    <Border Background="White" BorderBrush="#e5e7eb" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,6">
+                                        <Grid ColumnDefinitions="2*,*,*,*" ColumnSpacing="10">
+                                            <StackPanel Spacing="2">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding Champion}" Foreground="#6b7280" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding Level}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Kda}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Farm}" VerticalAlignment="Center" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -544,6 +1104,83 @@
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="Current Champion" FontWeight="SemiBold" />
                                     <TextBlock Text="{Binding CurrentChampion}" Foreground="#374151" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="White"
+                                    BorderBrush="#e5e7eb"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="10"
+                                    IsVisible="{Binding IsAramMayhemAugmentPanelVisible}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="{Binding AramMayhemAugmentTitle}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding AramMayhemAugmentEmptyText}"
+                                               Foreground="#6b7280"
+                                               IsVisible="{Binding HasNoAramMayhemAugmentStats}" />
+                                    <ItemsControl ItemsSource="{Binding AramMayhemAugmentStats}"
+                                                  HorizontalAlignment="Stretch"
+                                                  IsVisible="{Binding HasAramMayhemAugmentStats}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:AramMayhemAugmentSampleViewModel">
+                                                <Border Background="#f9fafb"
+                                                        BorderBrush="#e5e7eb"
+                                                        BorderThickness="1"
+                                                        CornerRadius="8"
+                                                        Padding="0"
+                                                        HorizontalAlignment="Stretch"
+                                                        Margin="0,0,0,6">
+                                                    <ToolTip.Tip>
+                                                        <ContentControl Content="{Binding}"
+                                                                        ContentTemplate="{StaticResource AramMayhemAugmentDetailTemplate}" />
+                                                    </ToolTip.Tip>
+                                                    <Button Padding="8"
+                                                            Background="Transparent"
+                                                            BorderThickness="0"
+                                                            HorizontalAlignment="Stretch"
+                                                            HorizontalContentAlignment="Stretch">
+                                                        <Button.Flyout>
+                                                            <Flyout>
+                                                                <ContentControl Content="{Binding}"
+                                                                                ContentTemplate="{StaticResource AramMayhemAugmentDetailTemplate}" />
+                                                            </Flyout>
+                                                        </Button.Flyout>
+                                                        <Grid ColumnDefinitions="36,*" ColumnSpacing="8" HorizontalAlignment="Stretch">
+                                                            <Border Width="30"
+                                                                    Height="30"
+                                                                    Background="{Binding RarityBackground}"
+                                                                    BorderBrush="{Binding RarityColor}"
+                                                                    BorderThickness="1"
+                                                                    CornerRadius="6">
+                                                                <Grid>
+                                                                    <Image Source="{Binding Icon}"
+                                                                           Width="24"
+                                                                           Height="24"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"
+                                                                           Stretch="UniformToFill"
+                                                                           IsVisible="{Binding HasIcon}" />
+                                                                    <TextBlock Text="{Binding Badge}"
+                                                                               Foreground="#f5f5f5"
+                                                                               FontSize="10"
+                                                                               FontWeight="SemiBold"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center"
+                                                                               IsVisible="{Binding HasNoIcon}" />
+                                                                </Grid>
+                                                            </Border>
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding Name}"
+                                                                       Foreground="#111"
+                                                                       FontWeight="SemiBold"
+                                                                       TextWrapping="Wrap"
+                                                                       VerticalAlignment="Center" />
+                                                        </Grid>
+                                                    </Button>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
                             </Border>
 
@@ -1081,72 +1718,106 @@
                             Command="{Binding CloseProfileMatchDetailCommand}" />
                 </Grid>
                 <ScrollViewer Grid.Row="1">
-                    <ItemsControl ItemsSource="{Binding ProfileMatchDetail.Awards}">
+                    <ItemsControl ItemsSource="{Binding ProfileMatchDetail.AwardGroups}">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:MatchAwardViewModel">
-                                <Border Background="#f5f5f5"
-                                        BorderBrush="#e5e7eb"
-                                        BorderThickness="1"
-                                        CornerRadius="8"
-                                        Padding="10"
-                                        Margin="0,0,0,6">
-                                    <Grid ColumnDefinitions="58,*" ColumnSpacing="10">
-                                        <Border Background="#111"
-                                                CornerRadius="4"
-                                                Padding="5,3"
-                                                HorizontalAlignment="Left"
-                                                VerticalAlignment="Top">
-                                            <TextBlock Text="{Binding Kind}"
-                                                       Foreground="White"
-                                                       FontSize="11"
-                                                       FontWeight="SemiBold" />
-                                        </Border>
-                                        <StackPanel Grid.Column="1" Spacing="3">
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                <TextBlock Text="{Binding PlayerName}"
-                                                           FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding Score}"
-                                                           FontSize="12"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="#374151" />
-                                            </Grid>
-                                            <TextBlock Text="{Binding Champion}"
-                                                       FontSize="12"
-                                                       Foreground="#374151" />
-                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
-                                                <TextBlock Text="{Binding Team}"
-                                                           FontSize="12"
-                                                           Foreground="#6b7280" />
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding Result}"
-                                                           FontSize="12"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="#374151" />
-                                                <TextBlock Text="{Binding Kda}"
-                                                           Grid.Column="2"
-                                                           FontSize="12"
-                                                           Foreground="#374151" />
-                                                <TextBlock Grid.Column="3"
-                                                           Text="{Binding Damage}"
-                                                           FontSize="12"
-                                                           Foreground="#6b7280" />
-                                            </Grid>
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                <TextBlock
-                                                           Text="{Binding Economy}"
-                                                           FontSize="12"
-                                                           Foreground="#6b7280" />
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding Reason}"
-                                                           FontSize="12"
-                                                           Foreground="#6b7280"
-                                                           TextAlignment="Right" />
-                                            </Grid>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
+                            <DataTemplate x:DataType="vm:MatchAwardGroupViewModel">
+                                <StackPanel Spacing="6" Margin="0,0,0,10">
+                                    <TextBlock Text="{Binding Title}"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Foreground="#6b7280" />
+                                    <ItemsControl ItemsSource="{Binding Awards}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:MatchAwardViewModel">
+                                                <Border Background="#f5f5f5"
+                                                        BorderBrush="#e5e7eb"
+                                                        BorderThickness="1"
+                                                        CornerRadius="8"
+                                                        Padding="10"
+                                                        Margin="0,0,0,6">
+                                                    <Grid ColumnDefinitions="46,*" ColumnSpacing="10">
+                                                        <Grid Width="40" Height="40">
+                                                            <Image Source="{Binding ChampionIcon}"
+                                                                   Width="36"
+                                                                   Height="36"
+                                                                   Stretch="UniformToFill"
+                                                                   HorizontalAlignment="Left"
+                                                                   VerticalAlignment="Top"
+                                                                   IsVisible="{Binding HasChampionIcon}" />
+                                                            <Border Background="White"
+                                                                    BorderBrush="#e5e7eb"
+                                                                    BorderThickness="1"
+                                                                    Width="36"
+                                                                    Height="36"
+                                                                    HorizontalAlignment="Left"
+                                                                    VerticalAlignment="Top"
+                                                                    IsVisible="{Binding HasNoChampionIcon}">
+                                                                <TextBlock Text="?"
+                                                                           Foreground="#6b7280"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center" />
+                                                            </Border>
+                                                            <Border Background="#111"
+                                                                    CornerRadius="4"
+                                                                    Padding="4,1"
+                                                                    HorizontalAlignment="Left"
+                                                                    VerticalAlignment="Bottom">
+                                                                <TextBlock Text="{Binding Kind}"
+                                                                           Foreground="White"
+                                                                           FontSize="10"
+                                                                           FontWeight="SemiBold" />
+                                                            </Border>
+                                                        </Grid>
+                                                        <StackPanel Grid.Column="1" Spacing="3">
+                                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                                <TextBlock Text="{Binding PlayerName}"
+                                                                           FontWeight="SemiBold"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding Score}"
+                                                                           FontSize="12"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="#374151" />
+                                                            </Grid>
+                                                            <TextBlock Text="{Binding Champion}"
+                                                                       FontSize="12"
+                                                                       Foreground="#374151" />
+                                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                                                                <TextBlock Text="{Binding Team}"
+                                                                           FontSize="12"
+                                                                           Foreground="#6b7280" />
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding Result}"
+                                                                           FontSize="12"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="#374151" />
+                                                                <TextBlock Text="{Binding Kda}"
+                                                                           Grid.Column="2"
+                                                                           FontSize="12"
+                                                                           Foreground="#374151" />
+                                                                <TextBlock Grid.Column="3"
+                                                                           Text="{Binding Damage}"
+                                                                           FontSize="12"
+                                                                           Foreground="#6b7280" />
+                                                            </Grid>
+                                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                                <TextBlock
+                                                                           Text="{Binding Economy}"
+                                                                           FontSize="12"
+                                                                           Foreground="#6b7280" />
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding Reason}"
+                                                                           FontSize="12"
+                                                                           Foreground="#6b7280"
+                                                                           TextAlignment="Right" />
+                                                            </Grid>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

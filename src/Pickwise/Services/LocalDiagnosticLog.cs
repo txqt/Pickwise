@@ -2,6 +2,7 @@ namespace Pickwise.Services;
 
 public sealed class LocalDiagnosticLog
 {
+    private static readonly object Gate = new();
     private readonly string _directory = System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Pickwise");
@@ -17,7 +18,19 @@ public sealed class LocalDiagnosticLog
 
     private void Write(string path, string level, string message)
     {
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
-        File.AppendAllText(path, $"{DateTimeOffset.Now:O} {level} {message}{Environment.NewLine}");
+        try
+        {
+            lock (Gate)
+            {
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+                File.AppendAllText(path, $"{DateTimeOffset.Now:O} {level} {message}{Environment.NewLine}");
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 }

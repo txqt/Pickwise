@@ -13,7 +13,8 @@ public sealed record LcuSnapshot(
     IReadOnlyList<int> PickableChampionIds,
     IReadOnlyList<int> DisabledChampionIds,
     IReadOnlyList<ChampionTradeRequest> TradeRequests,
-    string Message);
+    string Message,
+    ActiveGameState? ActiveGame = null);
 
 public sealed record CurrentSummoner(
     [property: JsonPropertyName("summonerId")] long? SummonerId,
@@ -154,7 +155,47 @@ public sealed record MatchHistoryEntry(
     IReadOnlyList<int> ItemIds,
     string Duration,
     string PlayedAt,
-    IReadOnlyList<MatchParticipantPerformance>? Participants = null);
+    IReadOnlyList<MatchParticipantPerformance>? Participants = null,
+    IReadOnlyList<int>? PerkIds = null,
+    IReadOnlyList<int>? AugmentIds = null);
+
+public sealed record MatchPickrateStat(int Id, string Name, int Picks, int Total)
+{
+    public double Rate => Total == 0 ? 0 : Picks / (double)Total;
+    public string Text => $"{Name}: picked in {Rate:P0} of sampled matches ({Picks}/{Total})";
+}
+
+public static class MatchPickrateCalculator
+{
+    public static IReadOnlyList<MatchPickrateStat> FromPerks(IReadOnlyList<MatchHistoryEntry> matches, int championId) =>
+        matches
+            .Where(match => match.ChampionId == championId)
+            .SelectMany(match => (match.PerkIds ?? []).Distinct())
+            .GroupBy(id => id)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key)
+            .Take(5)
+            .Select(group => new MatchPickrateStat(group.Key, $"Rune {group.Key}", group.Count(), matches.Count(match => match.ChampionId == championId)))
+            .ToList();
+
+    public static IReadOnlyList<MatchPickrateStat> FromAugments(IReadOnlyList<MatchHistoryEntry> matches, int championId)
+    {
+        var championMatches = matches
+            .Where(match => match.ChampionId == championId
+                && string.Equals(match.Queue, "ARAM Mayhem", StringComparison.OrdinalIgnoreCase)
+                && match.AugmentIds is { Count: > 0 })
+            .ToList();
+
+        return championMatches
+            .SelectMany(match => match.AugmentIds!.Distinct())
+            .GroupBy(id => id)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key)
+            .Take(5)
+            .Select(group => new MatchPickrateStat(group.Key, $"Augment {group.Key}", group.Count(), championMatches.Count))
+            .ToList();
+    }
+}
 
 public sealed record MatchParticipantPerformance(
     string PlayerKey,
@@ -169,7 +210,9 @@ public sealed record MatchParticipantPerformance(
     int CreepScore,
     int GoldEarned,
     int DamageDealt,
-    int LargestMultiKill);
+    int LargestMultiKill,
+    int Placement = 0,
+    IReadOnlyList<int>? AugmentIds = null);
 
 public sealed record MatchAward(
     string Kind,
@@ -310,7 +353,11 @@ public sealed record ChampionTradeRequest(
 }
 
 public sealed record GameflowSession(
-    [property: JsonPropertyName("gameData")] GameflowGameData? GameData);
+    [property: JsonPropertyName("gameData")] GameflowGameData? GameData)
+{
+    [JsonPropertyName("phase")]
+    public string? Phase { get; init; }
+}
 
 public sealed record GameflowGameData(
     [property: JsonPropertyName("queue")] GameflowQueue? Queue);
@@ -319,3 +366,48 @@ public sealed record GameflowQueue(
     [property: JsonPropertyName("id")] int? Id,
     [property: JsonPropertyName("queueId")] int? QueueId,
     [property: JsonPropertyName("gameMode")] string? GameMode);
+
+public sealed record ActiveGameState(
+    LiveGameStats? Stats,
+    LiveActivePlayer? ActivePlayer,
+    IReadOnlyList<LivePlayer> Players);
+
+public sealed record LiveGameStats(
+    [property: JsonPropertyName("gameMode")] string? GameMode,
+    [property: JsonPropertyName("gameTime")] double GameTime,
+    [property: JsonPropertyName("mapName")] string? MapName);
+
+public sealed record LiveActivePlayer(
+    [property: JsonPropertyName("summonerName")] string? SummonerName,
+    [property: JsonPropertyName("championStats")] LiveChampionStats? ChampionStats,
+    [property: JsonPropertyName("currentGold")] double CurrentGold,
+    [property: JsonPropertyName("fullRunes")] LiveFullRunes? FullRunes);
+
+public sealed record LiveChampionStats(
+    [property: JsonPropertyName("level")] int Level);
+
+public sealed record LiveFullRunes(
+    [property: JsonPropertyName("generalRunes")] List<LiveRune>? GeneralRunes,
+    [property: JsonPropertyName("keystone")] LiveRune? Keystone);
+
+public sealed record LiveRune(
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("displayName")] string? DisplayName);
+
+public sealed record LivePlayer(
+    [property: JsonPropertyName("summonerName")] string? SummonerName,
+    [property: JsonPropertyName("championName")] string? ChampionName,
+    [property: JsonPropertyName("team")] string? Team,
+    [property: JsonPropertyName("level")] int Level,
+    [property: JsonPropertyName("scores")] LiveScores? Scores,
+    [property: JsonPropertyName("items")] List<LiveItem>? Items);
+
+public sealed record LiveScores(
+    [property: JsonPropertyName("kills")] int Kills,
+    [property: JsonPropertyName("deaths")] int Deaths,
+    [property: JsonPropertyName("assists")] int Assists,
+    [property: JsonPropertyName("creepScore")] int CreepScore);
+
+public sealed record LiveItem(
+    [property: JsonPropertyName("itemID")] int ItemId,
+    [property: JsonPropertyName("displayName")] string? DisplayName);

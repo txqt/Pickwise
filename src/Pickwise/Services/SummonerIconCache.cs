@@ -107,7 +107,7 @@ public sealed class SummonerIconCache(LocalDiagnosticLog log)
         {
             return new Bitmap(path);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
         {
             log.Info($"Summoner icon cache unreadable: {label}");
             return null;

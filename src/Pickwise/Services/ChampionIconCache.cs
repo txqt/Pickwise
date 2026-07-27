@@ -56,7 +56,7 @@ public sealed class ChampionIconCache(LocalDiagnosticLog log)
         {
             return new Bitmap(path);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
         {
             log.Info($"Champion icon cache unreadable: {champion.Name}");
             return null;

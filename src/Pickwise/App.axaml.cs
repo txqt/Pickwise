@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 using Pickwise.Models;
 using Pickwise.Services;
 using Pickwise.ViewModels;
@@ -97,6 +98,7 @@ public partial class App : Application
                 SetAlertState(true);
                 PlayReadyCheckSound(log);
                 ShowMainWindow();
+                FlashMainWindow();
             }
             else if (ShouldClearReadyCheckAlert(_lastPhase, viewModel.Phase))
             {
@@ -122,11 +124,12 @@ public partial class App : Application
 
         try
         {
-            _ = MessageBeep(0x00000030);
+            Console.Beep(1200, 700);
         }
         catch (Exception exception)
         {
-            log.Error("Ready Check sound failed", exception);
+            log.Error("Ready Check beep failed", exception);
+            _ = MessageBeep(0xFFFFFFFF);
         }
     }
 
@@ -156,6 +159,39 @@ public partial class App : Application
         _mainWindow.Activate();
     }
 
+    private void FlashMainWindow()
+    {
+        if (!OperatingSystem.IsWindows() || _mainWindow?.TryGetPlatformHandle() is not IPlatformHandle handle)
+        {
+            return;
+        }
+
+        var info = new FlashWindowInfo
+        {
+            Size = (uint)Marshal.SizeOf<FlashWindowInfo>(),
+            Window = handle.Handle,
+            Flags = FlashAll | FlashTimerNoForeground,
+            Count = 5,
+            Timeout = 0,
+        };
+        _ = FlashWindowEx(ref info);
+    }
+
     [DllImport("user32.dll")]
     private static extern bool MessageBeep(uint type);
+
+    [DllImport("user32.dll")]
+    private static extern bool FlashWindowEx(ref FlashWindowInfo info);
+
+    private const uint FlashAll = 0x00000003;
+    private const uint FlashTimerNoForeground = 0x0000000C;
+
+    private struct FlashWindowInfo
+    {
+        public uint Size;
+        public IntPtr Window;
+        public uint Flags;
+        public uint Count;
+        public uint Timeout;
+    }
 }

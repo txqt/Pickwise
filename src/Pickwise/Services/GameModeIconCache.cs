@@ -1,4 +1,7 @@
 using Avalonia.Media.Imaging;
+using System.Security.Cryptography;
+using System.Text;
+using Pickwise.Models;
 
 namespace Pickwise.Services;
 
@@ -42,6 +45,44 @@ public sealed class GameModeIconCache(LocalDiagnosticLog log)
             return null;
         }
     }
+
+    public async Task<Bitmap?> LoadLcuAsync(ILcuClient lcu, GameMode mode, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(mode.MapAssetPath))
+        {
+            return null;
+        }
+
+        var key = LcuCacheKey(mode.MapId, mode.GameModeCode, mode.MapAssetPath);
+        var extension = System.IO.Path.GetExtension(mode.MapAssetPath);
+        var path = System.IO.Path.Combine(CacheDirectory, "lcu", $"{key}{extension}");
+        if (File.Exists(path))
+        {
+            return TryLoad(path, mode.Name);
+        }
+
+        try
+        {
+            var bytes = await lcu.GetMapAssetAsync(mode.MapAssetPath, cancellationToken).ConfigureAwait(false);
+            if (bytes is null || bytes.Length == 0)
+            {
+                log.Info($"LCU game mode icon unavailable: {mode.Name}");
+                return null;
+            }
+
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+            await File.WriteAllBytesAsync(path, bytes, cancellationToken).ConfigureAwait(false);
+            return TryLoad(path, mode.Name);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or IOException or OperationCanceledException)
+        {
+            log.Info($"LCU game mode icon unavailable: {mode.Name}");
+            return null;
+        }
+    }
+
+    public static string LcuCacheKey(int mapId, string gameMode, string assetPath) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{mapId}:{gameMode}:{assetPath}"))).ToLowerInvariant();
 
     private Bitmap? TryLoad(string path, string label)
     {

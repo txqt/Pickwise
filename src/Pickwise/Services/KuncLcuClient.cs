@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
 using Pickwise.Models;
 
 namespace Pickwise.Services;
@@ -12,6 +13,10 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
     private readonly LocalDiagnosticLog _log;
     private readonly HttpClient _http;
     private readonly Dictionary<long, SummonerProfile?> _summonerProfiles = [];
+    private readonly Dictionary<long, IReadOnlyList<LcuChampionInventoryEntry>?> _championInventoryBySummoner = [];
+    private long? _availabilitySummonerId;
+    private string? _connectionKey;
+    private IReadOnlyDictionary<int, int> _actionChampionIds = new Dictionary<int, int>();
 
     public KuncLcuClient(LocalDiagnosticLog log)
     {
@@ -26,15 +31,37 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
     {
         try
         {
-            if (TryGetConnection() is null)
+            var connection = TryGetConnection();
+            if (connection is null)
             {
+                _championInventoryBySummoner.Clear();
+                _availabilitySummonerId = null;
+                _connectionKey = null;
+                _actionChampionIds = new Dictionary<int, int>();
                 return Disconnected();
             }
+
+            var connectionKey = $"{connection.BaseUri}|{connection.Authorization.Parameter}";
+            if (_connectionKey is not null && !string.Equals(_connectionKey, connectionKey, StringComparison.Ordinal))
+            {
+                _championInventoryBySummoner.Clear();
+                _availabilitySummonerId = null;
+                _actionChampionIds = new Dictionary<int, int>();
+            }
+
+            _connectionKey = connectionKey;
 
             var summoner = await GetOrNull<CurrentSummoner>("lol-summoner/v1/current-summoner", cancellationToken);
             if (summoner is null)
             {
                 return Disconnected();
+            }
+
+            if (_availabilitySummonerId != summoner.SummonerId)
+            {
+                _championInventoryBySummoner.Clear();
+                _availabilitySummonerId = summoner.SummonerId;
+                _actionChampionIds = new Dictionary<int, int>();
             }
 
             var ready = await GetOrNull<ReadyCheckState>("lol-matchmaking/v1/ready-check", cancellationToken);
@@ -52,12 +79,26 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
             var championSelect = await GetOrNull<ChampionSelectSession>("lol-champ-select/v1/session", cancellationToken);
             if (championSelect is not null)
             {
-                var pickable = championSelect.AllowSubsetChampionPicks
-                    ? await GetListOrEmpty("lol-lobby-team-builder/champ-select/v1/subset-champion-list", cancellationToken)
-                    : await GetListOrEmpty("lol-champ-select/v1/pickable-champion-ids", cancellationToken);
-                var disabled = await GetListOrEmpty("lol-champ-select/v1/disabled-champion-ids", cancellationToken);
+                var availability = await GetChampionAvailabilityAsync(
+                    championSelect,
+                    summoner,
+                    gameflow?.GameData?.Queue?.QueueId ?? gameflow?.GameData?.Queue?.Id,
+                    gameflow?.GameData?.Queue?.GameMode,
+                    cancellationToken);
                 var trades = await GetListOrEmpty<ChampionTradeRequest>("lol-champ-select/v1/session/trades", cancellationToken);
-                return new(AppPhase.ChampionSelect, summoner, ready, championSelect, gameflow, lobby, lobbyMembers, pickable, disabled, trades, "Champion select");
+                return new(
+                    AppPhase.ChampionSelect,
+                    summoner,
+                    ready,
+                    championSelect,
+                    gameflow,
+                    lobby,
+                    lobbyMembers,
+                    availability.PickableChampionIds,
+                    availability.DisabledChampionIds,
+                    trades,
+                    availability.IsReady ? "Champion select" : availability.ErrorMessage ?? "Champion pool unavailable",
+                    ChampionAvailability: availability);
             }
 
             if (string.Equals(gameflow?.Phase, "InProgress", StringComparison.OrdinalIgnoreCase))
@@ -82,10 +123,204 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
     public Task<SummonerProfile?> GetSummonerProfileAsync(long summonerId, CancellationToken cancellationToken) =>
         GetOrNull<SummonerProfile>($"lol-summoner/v1/summoners/{summonerId}", cancellationToken);
 
+    private async Task<ChampionSelectAvailability> GetChampionAvailabilityAsync(
+        ChampionSelectSession session,
+        CurrentSummoner summoner,
+        int? queueId,
+        string? gameMode,
+        CancellationToken cancellationToken)
+    {
+        if (summoner.SummonerId is not { } summonerId)
+        {
+            return ChampionSelectAvailability.Unavailable("Champion inventory is unavailable");
+        }
+
+        var pickableEndpoint = session.AllowSubsetChampionPicks
+            ? "lol-lobby-team-builder/champ-select/v1/subset-champion-list"
+            : "lol-champ-select/v1/pickable-champion-ids";
+        if (!_championInventoryBySummoner.TryGetValue(summonerId, out var inventory))
+        {
+            inventory = await GetChampionInventoryAsync(summonerId, cancellationToken);
+            _championInventoryBySummoner[summonerId] = inventory;
+        }
+
+        var championIdMap = inventory?
+            .Where(champion => champion.Id > 0 && champion.RelatedPrimeItemId > 0)
+            .GroupBy(champion => champion.Id)
+            .ToDictionary(group => group.Key, group => group.First().RelatedPrimeItemId)
+            ?? [];
+        var pickable = await GetChampionIdsAsync(pickableEndpoint, cancellationToken);
+        var isLoLClassic = queueId == 4310 || string.Equals(gameMode, "JADE", StringComparison.OrdinalIgnoreCase);
+        var bannable = isLoLClassic
+            ? await GetChampionIdsAsync("lol-lobby-team-builder/champ-select/v1/bannable-champion-ids", cancellationToken)
+            : await GetChampionIdsAsync("lol-champ-select/v1/bannable-champion-ids", cancellationToken);
+        // For regular queues LCU uses [-1] to mean that every champion in its current
+        // grid is bannable. Classic must not inherit that shared pool: it needs a
+        // queue-specific response from the team-builder API or ban stays unavailable.
+        if (!isLoLClassic && bannable.IsWildcard)
+        {
+            bannable = await GetChampionIdsAsync("lol-champ-select/v1/all-grid-champions", cancellationToken);
+        }
+        var disabled = await GetChampionIdsAsync("lol-champ-select/v1/disabled-champion-ids", cancellationToken);
+
+        var normalizedPickable = NormalizeChampionIds(pickable.Ids, championIdMap);
+        var normalizedBannable = NormalizeChampionIds(bannable.Ids, championIdMap);
+        var normalizedDisabled = NormalizeChampionIds(disabled.Ids, championIdMap);
+        var usesAlternateChampionIds = pickable.Ids.Any(championId => championIdMap.ContainsKey(championId));
+        _actionChampionIds = usesAlternateChampionIds
+            ? inventory!
+                .Where(champion => champion.Id > 0 && champion.RelatedPrimeItemId > 0)
+                .GroupBy(champion => champion.CanonicalId)
+                .ToDictionary(group => group.Key, group => group.First().Id)
+            : new Dictionary<int, int>();
+
+        var eligible = inventory is not { Count: > 0 }
+            ? null
+            : inventory
+                .Where(champion => champion.Id > 0)
+                .Where(champion => champion.IsOwned || champion.IsFreeToPlay || champion.IsRental)
+                .Where(champion => queueId is null
+                    || champion.DisabledQueues is not { Count: > 0 } disabledQueues
+                    || !disabledQueues.Contains(queueId.Value))
+                .Select(champion => champion.CanonicalId)
+                .ToHashSet();
+
+        var pickStatus = pickable.IsAvailable && normalizedPickable.Count > 0 && disabled.IsAvailable && eligible is not null;
+        var bannableStatus = bannable.IsAvailable && normalizedBannable.Count > 0;
+        var error = !pickable.IsAvailable || normalizedPickable.Count == 0
+            ? "Champion pool is unavailable"
+            : !disabled.IsAvailable
+                ? "Disabled champion data is unavailable"
+                : eligible is null
+                    ? "Champion inventory is unavailable"
+                    : !bannableStatus ? "Bannable champion pool is unavailable" : null;
+
+        return new(
+            normalizedPickable,
+            normalizedBannable,
+            normalizedDisabled,
+            eligible ?? new HashSet<int>(),
+            pickStatus ? ChampionAvailabilityStatus.Ready : ChampionAvailabilityStatus.Unavailable,
+            bannableStatus ? ChampionAvailabilityStatus.Ready : ChampionAvailabilityStatus.Unavailable,
+            error,
+            _actionChampionIds);
+    }
+
+    private async Task<IReadOnlyList<LcuChampionInventoryEntry>?> GetChampionInventoryAsync(long summonerId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await SendAsync(
+                HttpMethod.Get,
+                $"lol-champions/v1/inventories/{summonerId}/champions-minimal",
+                cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(cancellationToken));
+            var value = document.RootElement.ValueKind == JsonValueKind.Array
+                ? document.RootElement
+                : document.RootElement.ValueKind == JsonValueKind.Object
+                    && document.RootElement.TryGetProperty("value", out var wrappedValue)
+                    ? wrappedValue
+                    : default;
+            if (value.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<List<LcuChampionInventoryEntry>>(
+                value.GetRawText(),
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException or IOException)
+        {
+            _log.Info("LCU champion inventory unavailable");
+            return null;
+        }
+    }
+
+    private static IReadOnlyList<int> NormalizeChampionIds(
+        IReadOnlyList<int> ids,
+        IReadOnlyDictionary<int, int> championIdMap) =>
+        ids
+            .Select(id => championIdMap.TryGetValue(id, out var canonicalId) ? canonicalId : id)
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+
+    private async Task<ChampionIdsResult> GetChampionIdsAsync(string endpoint, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await SendAsync(HttpMethod.Get, endpoint, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _log.Info($"LCU champion pool unavailable: {endpoint}");
+                return new([], false);
+            }
+
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(cancellationToken));
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return new([], false);
+            }
+
+            var ids = new List<int>();
+            foreach (var item in document.RootElement.EnumerateArray())
+            {
+                if (TryGetInt32(item, out var id))
+                {
+                    ids.Add(id);
+                }
+                else if (item.ValueKind == JsonValueKind.Object
+                    && (item.TryGetProperty("championId", out var championId) || item.TryGetProperty("id", out championId))
+                    && TryGetInt32(championId, out id))
+                {
+                    ids.Add(id);
+                }
+            }
+
+            return new(ids.Where(id => id > 0).Distinct().ToList(), true, ids.Contains(-1));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException or IOException)
+        {
+            _log.Info($"LCU champion pool unavailable: {endpoint}");
+            return new([], false);
+        }
+    }
+
+    private static bool TryGetInt32(JsonElement element, out int value)
+    {
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt32(out value))
+        {
+            return true;
+        }
+
+        if (element.ValueKind == JsonValueKind.String
+            && int.TryParse(element.GetString(), out value))
+        {
+            return true;
+        }
+
+        value = 0;
+        return false;
+    }
+
     public async Task<IReadOnlyList<GameMode>> GetQueuesAsync(CancellationToken cancellationToken)
     {
         var queues = await GetListOrEmpty<LcuQueue>("lol-game-queues/v1/queues", cancellationToken);
-        return queues
+        var modes = queues
             .Where(queue =>
                 queue.IsVisible
                 && queue.IsEnabled
@@ -95,6 +330,47 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
             .ThenBy(queue => queue.Id)
             .Select(queue => queue.ToGameMode())
             .ToList();
+
+        for (var index = 0; index < modes.Count; index++)
+        {
+            var mode = modes[index];
+            if (mode.QueueId != 4310 && mode.MapId != 453)
+            {
+                continue;
+            }
+
+            var metadata = await GetOrNull<GameModeMapMetadata>(
+                $"lol-maps/v2/map/{mode.MapId}/{Uri.EscapeDataString(mode.GameModeCode)}",
+                cancellationToken);
+            if (metadata?.DefaultIconPath is { Length: > 0 } iconPath)
+            {
+                modes[index] = mode with { MapAssetPath = iconPath };
+            }
+        }
+
+        return modes;
+    }
+
+    public async Task<GameModeMapMetadata?> GetMapMetadataAsync(int mapId, string gameMode, CancellationToken cancellationToken) =>
+        await GetOrNull<GameModeMapMetadata>($"lol-maps/v2/map/{mapId}/{Uri.EscapeDataString(gameMode)}", cancellationToken);
+
+    public async Task<byte[]?> GetMapAssetAsync(string assetPath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await SendAsync(HttpMethod.Get, assetPath, cancellationToken);
+            return response.IsSuccessStatusCode
+                ? await response.Content.ReadAsByteArrayAsync(cancellationToken)
+                : null;
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
     }
 
     public async Task<ActiveGameState?> GetActiveGameAsync(CancellationToken cancellationToken)
@@ -324,6 +600,11 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
         {
             return default;
         }
+        catch (JsonException)
+        {
+            _log.Info($"LCU response shape unavailable: {endpoint}");
+            return default;
+        }
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             return default;
@@ -375,13 +656,27 @@ public sealed class KuncLcuClient : ILcuClient, IDisposable
             throw new InvalidOperationException($"No active {type} action.");
         }
 
+        var lcuChampionId = _actionChampionIds.TryGetValue(championId, out var alternateChampionId)
+            ? alternateChampionId
+            : championId;
+        var endpoint = $"lol-champ-select/v1/session/actions/{action.Id}";
         using var response = complete
-            ? await SendJsonAsync(HttpMethod.Patch, $"lol-champ-select/v1/session/actions/{action.Id}", new { championId, completed = true }, cancellationToken)
-            : await SendJsonAsync(HttpMethod.Patch, $"lol-champ-select/v1/session/actions/{action.Id}", new { championId }, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
+            ? await SendJsonAsync(HttpMethod.Patch, endpoint, new { championId = lcuChampionId, completed = true }, cancellationToken)
+            : await SendJsonAsync(HttpMethod.Patch, endpoint, new { championId = lcuChampionId }, cancellationToken);
+        if (!response.IsSuccessStatusCode && lcuChampionId != championId)
+        {
+            using var fallback = complete
+                ? await SendJsonAsync(HttpMethod.Patch, endpoint, new { championId, completed = true }, cancellationToken)
+                : await SendJsonAsync(HttpMethod.Patch, endpoint, new { championId }, cancellationToken);
+            await EnsureSuccessAsync(fallback, cancellationToken);
+        }
+        else
+        {
+            await EnsureSuccessAsync(response, cancellationToken);
+        }
         _log.Info(complete
-            ? $"Champion {type} submitted by Player Command"
-            : $"Champion {type} declared by Player Command");
+            ? $"Champion {type} submitted by Player Command: championId={championId}, lcuChampionId={lcuChampionId}"
+            : $"Champion {type} declared by Player Command: championId={championId}, lcuChampionId={lcuChampionId}");
     }
 
     private static MatchHistoryEntry? ToMatchHistoryEntry(MatchHistoryGame game, string puuid)
@@ -670,6 +965,45 @@ public sealed record MatchHistoryPlayer(
     [property: System.Text.Json.Serialization.JsonPropertyName("gameName")] string? GameName,
     [property: System.Text.Json.Serialization.JsonPropertyName("tagLine")] string? TagLine);
 
+public sealed record LcuChampionInventoryEntry(
+    [property: System.Text.Json.Serialization.JsonPropertyName("id")] int Id,
+    [property: System.Text.Json.Serialization.JsonPropertyName("owned")] bool Owned,
+    [property: System.Text.Json.Serialization.JsonPropertyName("freeToPlay")] bool FreeToPlay,
+    [property: System.Text.Json.Serialization.JsonPropertyName("freeToPlayForBeginnerPlayers")] bool FreeToPlayForBeginnerPlayers,
+    [property: System.Text.Json.Serialization.JsonPropertyName("rental")] JsonElement? Rental,
+    [property: System.Text.Json.Serialization.JsonPropertyName("disabledQueues")] List<int>? DisabledQueues,
+    [property: System.Text.Json.Serialization.JsonPropertyName("active")] bool? Active,
+    [property: System.Text.Json.Serialization.JsonPropertyName("ownership")] LcuChampionOwnership? Ownership,
+    [property: System.Text.Json.Serialization.JsonPropertyName("relatedPrimeItemId")] int RelatedPrimeItemId = 0)
+{
+    public bool IsOwned => Owned || Ownership?.Owned == true;
+    public bool IsFreeToPlay => FreeToPlay || FreeToPlayForBeginnerPlayers || Ownership?.FreeToPlay == true;
+    public bool IsRental => RentalValue(Rental) || Ownership?.IsRental == true;
+    public int CanonicalId => RelatedPrimeItemId > 0 ? RelatedPrimeItemId : Id;
+
+    private static bool RentalValue(JsonElement? rental) =>
+        rental is { ValueKind: JsonValueKind.True }
+        || (rental is { ValueKind: JsonValueKind.Object }
+            && rental.Value.TryGetProperty("rented", out var rented)
+            && rented.ValueKind == JsonValueKind.True);
+}
+
+public sealed record LcuChampionOwnership(
+    [property: System.Text.Json.Serialization.JsonPropertyName("owned")] bool Owned,
+    [property: System.Text.Json.Serialization.JsonPropertyName("freeToPlay")] bool FreeToPlay,
+    [property: System.Text.Json.Serialization.JsonPropertyName("rental")] JsonElement? Rental)
+{
+    public bool IsRental => Rental is { ValueKind: JsonValueKind.True }
+        || (Rental is { ValueKind: JsonValueKind.Object }
+            && Rental.Value.TryGetProperty("rented", out var rented)
+            && rented.ValueKind == JsonValueKind.True);
+}
+
+public sealed record ChampionIdsResult(IReadOnlyList<int> Ids, bool IsAvailable, bool IsWildcard = false)
+{
+    public int Count => Ids.Count;
+}
+
 public sealed record LcuQueue(
     [property: System.Text.Json.Serialization.JsonPropertyName("id")] int Id,
     [property: System.Text.Json.Serialization.JsonPropertyName("name")] string? Name,
@@ -687,11 +1021,17 @@ public sealed record LcuQueue(
     [property: System.Text.Json.Serialization.JsonPropertyName("showPositionSelector")] bool ShowPositionSelector,
     [property: System.Text.Json.Serialization.JsonPropertyName("showQuickPlaySlotSelection")] bool ShowQuickPlaySlotSelection,
     [property: System.Text.Json.Serialization.JsonPropertyName("maximumParticipantListSize")] int MaximumParticipantListSize,
-    [property: System.Text.Json.Serialization.JsonPropertyName("gameTypeConfig")] LcuQueueGameTypeConfig? GameTypeConfig)
+    [property: System.Text.Json.Serialization.JsonPropertyName("gameTypeConfig")] LcuQueueGameTypeConfig? GameTypeConfig,
+    [property: System.Text.Json.Serialization.JsonPropertyName("hidePlayerPosition")] bool HidePlayerPosition = false,
+    [property: System.Text.Json.Serialization.JsonPropertyName("description")] string? Description = null,
+    [property: System.Text.Json.Serialization.JsonPropertyName("isRanked")] bool IsRanked = false,
+    [property: System.Text.Json.Serialization.JsonPropertyName("assetMutator")] string? AssetMutator = null,
+    [property: System.Text.Json.Serialization.JsonPropertyName("championsRequiredToPlay")] int ChampionsRequiredToPlay = 0,
+    [property: System.Text.Json.Serialization.JsonPropertyName("areFreeChampionsAllowed")] bool AreFreeChampionsAllowed = true)
 {
     public GameMode ToGameMode() =>
         new(
-            string.IsNullOrWhiteSpace(Name) ? $"Queue {Id}" : Name!,
+            Id == 4310 ? "LoL Classic" : string.IsNullOrWhiteSpace(Name) ? $"Queue {Id}" : Name!,
             Id,
             Category ?? "",
             GameSelectModeGroup ?? "",
@@ -700,10 +1040,17 @@ public sealed record LcuQueue(
             MapId,
             PickMode ?? "",
             IsCustom,
-            ShowPositionSelector,
+            ShowPositionSelector && !HidePlayerPosition,
             ShowQuickPlaySlotSelection,
             MaximumParticipantListSize,
-            GameTypeConfig?.ToModel(PickMode ?? ""));
+            GameTypeConfig?.ToModel(PickMode ?? ""),
+            ShortName ?? "",
+            Description ?? "",
+            IsRanked || (Type?.Contains("RANKED", StringComparison.OrdinalIgnoreCase) == true),
+            HidePlayerPosition,
+            AssetMutator ?? "",
+            ChampionsRequiredToPlay,
+            AreFreeChampionsAllowed);
 }
 
 public sealed record LcuQueueGameTypeConfig(

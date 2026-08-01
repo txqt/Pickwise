@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Text.Json;
 
 namespace Pickwise.Models;
 
@@ -14,7 +15,31 @@ public sealed record LcuSnapshot(
     IReadOnlyList<int> DisabledChampionIds,
     IReadOnlyList<ChampionTradeRequest> TradeRequests,
     string Message,
-    ActiveGameState? ActiveGame = null);
+    ActiveGameState? ActiveGame = null,
+    ChampionSelectAvailability? ChampionAvailability = null);
+
+public enum ChampionAvailabilityStatus
+{
+    Ready,
+    Unavailable
+}
+
+public sealed record ChampionSelectAvailability(
+    IReadOnlyList<int> PickableChampionIds,
+    IReadOnlyList<int> BannableChampionIds,
+    IReadOnlyList<int> DisabledChampionIds,
+    IReadOnlySet<int> AccountEligibleChampionIds,
+    ChampionAvailabilityStatus Status,
+    ChampionAvailabilityStatus BannableStatus = ChampionAvailabilityStatus.Ready,
+    string? ErrorMessage = null,
+    IReadOnlyDictionary<int, int>? ActionChampionIds = null)
+{
+    public bool IsReady => Status == ChampionAvailabilityStatus.Ready;
+    public bool IsBannableReady => IsReady && BannableStatus == ChampionAvailabilityStatus.Ready;
+
+    public static ChampionSelectAvailability Unavailable(string message) =>
+        new([], [], [], new HashSet<int>(), ChampionAvailabilityStatus.Unavailable, ChampionAvailabilityStatus.Unavailable, message);
+}
 
 public sealed record CurrentSummoner(
     [property: JsonPropertyName("summonerId")] long? SummonerId,
@@ -280,6 +305,11 @@ public sealed record ChampionSelectSession(
     [JsonPropertyName("benchChampions")]
     public List<ChampionSelectBenchChampion>? BenchChampions { get; init; }
 
+    [JsonPropertyName("timer")]
+    public ChampionSelectTimer? Timer { get; init; }
+
+    public bool IsPlanning => string.Equals(Timer?.Phase, "PLANNING", StringComparison.OrdinalIgnoreCase);
+
     public ChampionSelectPlayer? LocalPlayer => MyTeam.FirstOrDefault(player => player.CellId == LocalPlayerCellId);
 
     public IReadOnlyList<int> AvailableBenchChampionIds => BenchChampions is { Count: > 0 }
@@ -312,6 +342,14 @@ public sealed record ChampionSelectSession(
             && !action.Completed
             && string.Equals(action.Type, type, StringComparison.OrdinalIgnoreCase));
 
+    public ChampionSelectAction? CurrentLocalAction() => Actions
+        .SelectMany(group => group)
+        .Where(action =>
+            action.ActorCellId == LocalPlayerCellId
+            && action.IsInProgress
+            && !action.Completed)
+        .LastOrDefault();
+
     public ChampionSelectAction? OpenAction(string type) => Actions
         .SelectMany(group => group)
         .FirstOrDefault(action =>
@@ -335,6 +373,11 @@ public sealed record ChampionSelectAction(
     [property: JsonPropertyName("completed")] bool Completed,
     [property: JsonPropertyName("isInProgress")] bool IsInProgress);
 
+public sealed record ChampionSelectTimer(
+    [property: JsonPropertyName("phase")] string? Phase,
+    [property: JsonPropertyName("adjustedTimeLeftInPhase")] long AdjustedTimeLeftInPhase = 0,
+    [property: JsonPropertyName("totalTimeInPhase")] long TotalTimeInPhase = 0);
+
 public sealed record ChampionSelectPlayer(
     [property: JsonPropertyName("cellId")] int CellId,
     [property: JsonPropertyName("championId")] int ChampionId,
@@ -357,15 +400,44 @@ public sealed record GameflowSession(
 {
     [JsonPropertyName("phase")]
     public string? Phase { get; init; }
+
+    [JsonPropertyName("properties")]
+    public GameflowProperties? Properties { get; init; }
+
+    public int? MapId => GameData?.Map?.Id ?? GameData?.Map?.MapId ?? GameData?.Queue?.MapId;
+    public string? GameMode => GameData?.Queue?.GameMode ?? GameData?.Map?.GameMode;
+    public bool SuppressRunesMasteriesPerks =>
+        Properties?.SuppressRunesMasteriesPerks == true || GameData?.Properties?.SuppressRunesMasteriesPerks == true;
 }
 
 public sealed record GameflowGameData(
-    [property: JsonPropertyName("queue")] GameflowQueue? Queue);
+    [property: JsonPropertyName("queue")] GameflowQueue? Queue)
+{
+    [JsonPropertyName("map")]
+    public GameflowMap? Map { get; init; }
+
+    [JsonPropertyName("properties")]
+    public GameflowProperties? Properties { get; init; }
+}
 
 public sealed record GameflowQueue(
     [property: JsonPropertyName("id")] int? Id,
     [property: JsonPropertyName("queueId")] int? QueueId,
-    [property: JsonPropertyName("gameMode")] string? GameMode);
+    [property: JsonPropertyName("gameMode")] string? GameMode)
+{
+    [JsonPropertyName("mapId")]
+    public int? MapId { get; init; }
+}
+
+public sealed record GameflowMap(
+    [property: JsonPropertyName("id")] int? Id,
+    [property: JsonPropertyName("name")] string? Name,
+    [property: JsonPropertyName("gameMode")] string? GameMode,
+    [property: JsonPropertyName("assets")] GameModeMapAssetCollection? Assets,
+    [property: JsonPropertyName("mapId")] int? MapId = null);
+
+public sealed record GameflowProperties(
+    [property: JsonPropertyName("suppressRunesMasteriesPerks")] bool SuppressRunesMasteriesPerks);
 
 public sealed record ActiveGameState(
     LiveGameStats? Stats,

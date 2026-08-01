@@ -87,6 +87,9 @@ AssertLeaveLobbyCallsLcu();
 AssertCreateLobbyRefreshesSnapshotImmediately();
 AssertModeScreenNavigationWorks();
 AssertGameModeIconCachePathWorks();
+AssertLoLClassicQueueFixture();
+AssertGameflowClassicFixture();
+AssertAuthoritativeChampionPools();
 AssertLcuLockfileParserWorks();
 AssertConstructorDoesNotBlockOnSlowLcu();
 Console.WriteLine("Pickwise self-checks passed.");
@@ -195,7 +198,7 @@ static void AssertAramChampionSelectionUsesCardAndBenchLists()
 {
     var lcu = new AramLcuClient(localChampionId: 0);
     var viewModel = new MainViewModel(lcu, new LocalDiagnosticLog());
-    Thread.Sleep(100);
+    WaitUntil(() => viewModel.IsAramChampionSelect && viewModel.IsRandomCardChampionSelect && viewModel.Champions.Count == 0, "ARAM snapshot arrives");
 
     Assert(viewModel.IsAramChampionSelect, "ARAM snapshot switches to ARAM champion select");
     Assert(viewModel.Champions.Count == 0, "ARAM does not use the 5v5 champion grid");
@@ -209,13 +212,13 @@ static void AssertAramChampionSelectionUsesCardAndBenchLists()
     Assert(viewModel.CanPickAramChampion, "selecting an ARAM card enables Pick Card");
 
     var selectedViewModel = new MainViewModel(new AramLcuClient(localChampionId: 103), new LocalDiagnosticLog());
-    Thread.Sleep(100);
+    WaitUntil(() => selectedViewModel.IsAramChampionSelect && selectedViewModel.IsRandomCardChampionSelect, "selected ARAM snapshot arrives");
     Assert(selectedViewModel.AramAvailableChampions.Count == 0, "ARAM cards disappear after a champion is selected");
     Assert(selectedViewModel.AramBenchChampions.Select(tile => tile.Champion.ChampionId).SequenceEqual([222, 145]), "bench stays visible after a champion is selected");
 
     var selectedLcu = new AramLcuClient(localChampionId: 103);
     var swapViewModel = new MainViewModel(selectedLcu, new LocalDiagnosticLog());
-    Thread.Sleep(100);
+    WaitUntil(() => swapViewModel.IsAramChampionSelect && swapViewModel.IsRandomCardChampionSelect, "bench ARAM snapshot arrives");
     swapViewModel.SwapBenchChampionTileCommand.Execute(swapViewModel.AramBenchChampions[0]);
     Assert(selectedLcu.SwappedChampionId == 222, "single-clicking an ARAM bench champion swaps it");
 
@@ -314,6 +317,15 @@ static void AssertChampionSelectTimelineLabels()
     Assert(TimelineFor(new FiveVFiveLcuClient(localPickInProgress: true, localBanInProgress: false, localChampionId: 103)) == "Picking", "timeline labels pick phase");
     Assert(TimelineFor(new FiveVFiveLcuClient(completed: true)) == "Completed", "timeline labels completed phase");
     Assert(TimelineFor(new FiveVFiveLcuClient(localPickInProgress: false, localBanInProgress: false)) == "Waiting", "timeline labels waiting phase");
+
+    var planning = new ChampionSelectSession(
+        0,
+        [[new ChampionSelectAction(0, 0, "ban", 0, false, true)], [new ChampionSelectAction(1, 0, "pick", 0, false, false)]],
+        [], [], new ChampionSelectBans([], []), null, false, false, false)
+    {
+        Timer = new ChampionSelectTimer("PLANNING")
+    };
+    Assert(TimelineForSnapshot(planning) == "Declaring", "planning phase with open pick is declare phase");
 }
 
 static string TimelineFor(ILcuClient lcu)
@@ -948,11 +960,13 @@ static void AssertModeScreenNavigationWorks()
 
     viewModel.Phase = AppPhase.ReadyCheck;
     Assert(viewModel.IsReadyScreen, "ready check phase opens ready screen");
+    Assert(!viewModel.IsFiveVFiveChampionSelectActionBarVisible, "champion select action bar stays hidden during ready check");
     viewModel.BackCommand.Execute(null);
     Assert(viewModel.IsReadyScreen, "back stays on ready screen during ready check");
 
     viewModel.Phase = AppPhase.ChampionSelect;
     Assert(viewModel.IsChampionSelectScreen, "champion select phase opens champion select screen");
+    Assert(viewModel.IsFiveVFiveChampionSelectActionBarVisible, "champion select action bar appears during five-v-five champion select");
 }
 
 static void AssertActiveGameNavigationWorks()
@@ -1290,6 +1304,100 @@ static T InvokeStaticPrivate<T>(Type type, string name, params object[] paramete
 static void AssertGameModeIconCachePathWorks()
 {
     Assert(GameModeIconCache.CacheDirectory.Contains("game-mode-icons"), "game mode icons use their own cache directory");
+    Assert(GameModeIconCache.LcuCacheKey(453, "JADE", "/lol-game-data/assets/jade.png")
+        != GameModeIconCache.LcuCacheKey(11, "CLASSIC", "/lol-game-data/assets/jade.png"), "LCU map icon cache separates map and mode");
+}
+
+static string TimelineForSnapshot(ChampionSelectSession session)
+{
+    var viewModel = new MainViewModel(new SlowLcuClient(), new LocalDiagnosticLog(), TempPreferences());
+    ApplySnapshot(viewModel, new(AppPhase.ChampionSelect, null, null, session, null, null, [], [103], [], [], "select"));
+    return viewModel.ChampionSelectTimeline;
+}
+
+static void AssertLoLClassicQueueFixture()
+{
+    var queue = JsonSerializer.Deserialize<LcuQueue>("""
+        {
+          "id": 4310,
+          "name": "",
+          "shortName": "Classic",
+          "category": "PvP",
+          "gameSelectModeGroup": "kJade",
+          "gameMode": "JADE",
+          "type": "NORMAL",
+          "mapId": 453,
+          "showPositionSelector": true,
+          "hidePlayerPosition": true,
+          "isEnabled": true,
+          "isVisible": true,
+          "queueAvailability": "Available",
+          "maximumParticipantListSize": 5,
+          "areFreeChampionsAllowed": true
+        }
+        """)!.ToGameMode();
+
+    Assert(queue.Name == "LoL Classic" && queue.Label == "LoL Classic", "4310 gets stable LoL Classic label");
+    Assert(queue.DisplayGroup == "LoL Classic" && queue.MapId == 453 && queue.GameModeCode == "JADE", "4310 gets its own mode group and map");
+    Assert(!queue.ShowPositionSelector && queue.HidePlayerPosition, "4310 respects hidden position metadata");
+
+    var runtimeQueue = new GameMode("Classic runtime", 3262, ModeGroup: "kJade", GameModeCode: "JADE", MapId: 453);
+    Assert(!runtimeQueue.IsLoLClassic && runtimeQueue.IsJadeMode && runtimeQueue.Label == "Classic runtime", "runtime Classic queue keeps its own label");
+}
+
+static void AssertGameflowClassicFixture()
+{
+    var session = JsonSerializer.Deserialize<GameflowSession>("""
+        {
+          "phase": "ChampSelect",
+          "gameData": {
+            "queue": { "id": 4310, "queueId": 4310, "gameMode": "JADE", "mapId": 453 },
+            "map": { "id": 453, "name": "LoL Classic", "gameMode": "JADE", "assets": [{ "name": "game-select-icon-default", "path": "/lol-game-data/assets/jade.png" }] },
+            "properties": { "suppressRunesMasteriesPerks": true }
+          }
+        }
+        """)!;
+
+    Assert(session.MapId == 453 && session.GameMode == "JADE", "gameflow parses Jade map metadata");
+    Assert(session.SuppressRunesMasteriesPerks, "gameflow parses rune suppression property");
+    Assert(session.GameData!.Map!.Assets!.DefaultIconPath == "/lol-game-data/assets/jade.png", "gameflow parses map assets");
+    var map = JsonSerializer.Deserialize<GameModeMapMetadata>("""
+        { "mapId": 453, "gameMode": "JADE", "assets": { "game-select-icon-default": "/lol-game-data/assets/jade.png" } }
+        """)!;
+    Assert(map.DefaultIconPath == "/lol-game-data/assets/jade.png", "map metadata parses LCU asset map shape");
+}
+
+static void AssertAuthoritativeChampionPools()
+{
+    var session = new ChampionSelectSession(
+        1,
+        [[new ChampionSelectAction(1, 1, "ban", 0, false, true)]],
+        [new ChampionSelectPlayer(1, 0, 1, "middle")],
+        [],
+        new ChampionSelectBans([], []),
+        null,
+        false,
+        false,
+        false);
+    var availability = new ChampionSelectAvailability(
+        [103, 222], [222], [], new HashSet<int>([103]), ChampionAvailabilityStatus.Ready);
+    var viewModel = new MainViewModel(new SlowLcuClient(), new LocalDiagnosticLog(), TempPreferences());
+    ApplySnapshot(viewModel, new(AppPhase.ChampionSelect, null, null, session,
+        new GameflowSession(new GameflowGameData(new GameflowQueue(400, 400, "CLASSIC"))), null,
+        [], [], [], [], "Champion select", ChampionAvailability: availability));
+
+    Assert(viewModel.Champions.Count == 0, "ban pool excludes champions not in bannable/account-eligible intersection");
+    Assert(!viewModel.CanChampionCommand, "ban command stays disabled when selected champion is absent");
+
+    var unavailable = new MainViewModel(new SlowLcuClient(), new LocalDiagnosticLog(), TempPreferences());
+    var classicSession = session with
+    {
+        Actions = [[new ChampionSelectAction(1, 1, "pick", 0, false, true)]]
+    };
+    ApplySnapshot(unavailable, new(AppPhase.ChampionSelect, null, null, classicSession,
+        new GameflowSession(new GameflowGameData(new GameflowQueue(4310, 4310, "JADE"))), null,
+        [], [], [], [], "Champion pool unavailable"));
+    Assert(unavailable.Champions.Count == 0 && !unavailable.CanChampionCommand, "LoL Classic never falls back to full catalog");
 }
 
 static void AssertLcuLockfileParserWorks()

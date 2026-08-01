@@ -6,6 +6,8 @@ public interface ILcuClient
 {
     Task<LcuSnapshot> GetSnapshotAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<GameMode>> GetQueuesAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<GameMode>>([]);
+    Task<GameModeMapMetadata?> GetMapMetadataAsync(int mapId, string gameMode, CancellationToken cancellationToken) => Task.FromResult<GameModeMapMetadata?>(null);
+    Task<byte[]?> GetMapAssetAsync(string assetPath, CancellationToken cancellationToken) => Task.FromResult<byte[]?>(null);
     Task<ActiveGameState?> GetActiveGameAsync(CancellationToken cancellationToken) => Task.FromResult<ActiveGameState?>(null);
     Task<SummonerProfile?> GetSummonerProfileAsync(long summonerId, CancellationToken cancellationToken);
     Task<RankedSummary?> GetRankedSummaryAsync(long summonerId, CancellationToken cancellationToken);
